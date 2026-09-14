@@ -3,6 +3,7 @@
 import base64
 import copy
 import io
+import json
 import os
 from pathlib import Path
 from types import SimpleNamespace
@@ -19,7 +20,7 @@ from server.api.routers import projects as project_api
 from server.core import bubbles, characters, compose, lettering, scenes, story
 from server.core.asset_render import render_asset
 from server.core.studio import TEMPLATES
-from server.services import assets, image_gen, uploads
+from server.services import assets, image_gen, uploads, llm
 
 
 @pytest.fixture
@@ -34,6 +35,10 @@ def project(tmp_path, monkeypatch):
 
     monkeypatch.setattr(image_gen, "generate", forbidden)
     monkeypatch.setattr(image_gen, "edit", forbidden)
+    def prepare(prompt, **kwargs):
+        data = json.loads(prompt.split("分镜输入 JSON：\n", 1)[1])
+        return {"scene_prompt_en": "Prepared scene illustration", "characters": data["scene"]["characters"]}
+    monkeypatch.setattr(llm, "chat_json", prepare)
     pid = "test_project"
     folder = store.init_dirs(pid)
     sb = {
@@ -51,7 +56,6 @@ def project(tmp_path, monkeypatch):
                 "reference_source": "upload",
             }
         ],
-        "props": [],
         "scenes": [],
     }
     for i in range(1, 4):
@@ -346,8 +350,9 @@ def test_reference_generation_requests_transparent_images_once(project, monkeypa
         image.save(path)
 
     monkeypatch.setattr(image_gen, "generate", generate)
-    characters.generate_references(pid, sb)
-    assert calls == ["new_character.png", "phone.png"]
+    refs = characters.generate_references(pid, sb)
+    assert calls == ["new_character.png"]
+    assert "phone" not in refs and not (folder / "props/phone.png").exists()
     assert (folder / "characters/user_01.png").read_bytes() == supplied
     assert (folder / "characters/new_character_rgba.png").read_bytes() == (folder / "characters/new_character.png").read_bytes()
 
@@ -535,9 +540,11 @@ def test_create_supplied_character_is_in_story_prompt(project, client, monkeypat
     pid, sb, folder = project
     generated = copy.deepcopy(sb)
     generated["scenes"] = generated["scenes"][:1]
+    generated["props"] = [{"prop_id": "phone", "name": "手机", "english_desc": "black phone"}]
+    generated["scenes"][0]["props"] = ["phone"]
     prompts = []
     monkeypatch.setattr(
-        story.llm, "chat_json", lambda p: (prompts.append(p), generated)[1]
+        story.llm, "chat_json", lambda p, **kw: (prompts.append((p, kw)), generated)[1]
     )
 
     def sync_submit(kind, pid, detail, fn):
@@ -559,10 +566,284 @@ def test_create_supplied_character_is_in_story_prompt(project, client, monkeypat
     )
     assert response.status_code == 201, response.text
     created = store.load_storyboard(response.json()["project_id"])
-    assert "固定主人公" in prompts[0] and "user_01" in prompts[0]
+    assert "固定主人公" in prompts[0][0] and "user_01" in prompts[0][0]
+    label, image_path = prompts[0][1]["image_refs"][0]
+    assert "user_01" in label and "固定主人公" in label
+    assert image_path.read_bytes() == uploads.decode_image(data_url())
+    assert created["characters"][0]["english_desc"] == "reference character"
     assert created["characters"][0]["name"] == "固定主人公"
     assert created["background_mode"] == "transparent"
     assert created["characters_confirmed"] is False
+    assert "props" not in created and "props" not in created["scenes"][0]
+    story.prepare_scene_prompt(created["project_id"], created, created["scenes"][0])
+    assert len(prompts) == 1  # The initial story already saw these exact references.
+
+
+def test_llm_sends_labeled_images_and_keeps_text_only_requests(project, monkeypatch):
+    _, _, folder = project
+    captured = []
+
+    def request(**kwargs):
+        captured.append(kwargs)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content='{"ok":true}'))])
+
+    monkeypatch.setattr(llm, "_client", SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=request))))
+    reference = folder / "characters/user_01.png"
+    llm._request("Observe these identities", 0.2, [("user_01 = A", reference)])
+    content = captured[0]["messages"][0]["content"]
+    assert content[1] == {"type": "text", "text": "user_01 = A"}
+    assert content[2]["type"] == "image_url"
+    url = content[2]["image_url"]["url"]
+    assert url.startswith("data:image/png;base64,")
+    assert base64.b64decode(url.split(",", 1)[1]) == reference.read_bytes()
+    llm._request("Text only", 0.7)
+    assert captured[1]["messages"][0]["content"] == "Text only"
+
+
+def test_unsupported_vision_is_not_retried_without_images(project, monkeypatch):
+    import httpx
+    from openai import BadRequestError
+    _, _, folder = project
+    calls = []
+
+    def request(**kwargs):
+        calls.append(kwargs)
+        raise BadRequestError("image input unsupported", response=httpx.Response(
+            400, request=httpx.Request("POST", "https://example.invalid/chat/completions")), body=None)
+
+    monkeypatch.setattr(llm, "_client", SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=request))))
+    monkeypatch.setattr(llm, "_supports_reasoning_effort", True)
+    with pytest.raises(BadRequestError):
+        llm._request("Inspect A", 0.2, [("A", folder / "characters/user_01.png")])
+    assert len(calls) == 1
+    assert calls[0]["messages"][0]["content"][-1]["type"] == "image_url"
+
+
+@pytest.mark.parametrize("changed", ["character", "prop", "prop_selection", "style"])
+def test_shared_visual_setting_invalidates_affected_scenes(client, project, changed):
+    pid, sb, _ = project
+    sb["scenes"][1]["characters"] = []
+    sb["scenes"][2]["characters"] = []
+    sb["props"] = [{"prop_id": "phone", "name": "手机", "english_desc": "black phone"}]
+    sb["scenes"][1]["props"] = ["phone"]
+    store.save_storyboard(pid, sb)
+    draft = copy.deepcopy(sb)
+    if changed == "character":
+        draft["characters"][0]["role"] = "骗子"
+    elif changed == "prop":
+        draft["props"][0]["english_desc"] = "red phone"
+    elif changed == "prop_selection":
+        draft["scenes"][1]["props"] = []
+    else:
+        draft["style"]["style_prompt"] = "watercolor"
+    assert client.put(f"/api/projects/{pid}/storyboard", json=draft).status_code == 200
+    affected = [s["scene_id"] for s in sb["scenes"] if (store.load_scene_meta(pid, s["scene_id"]) or {}).get("generation_stale")]
+    assert affected == {"character": ["scene_01"], "prop": [], "prop_selection": [], "style": ["scene_01", "scene_02", "scene_03"]}[changed]
+
+
+def test_cast_and_story_edits_prepare_only_affected_scene(client, project, monkeypatch):
+    pid, sb, folder = project
+    sb["characters"].append({"character_id": "user_02", "name": "B", "role": "骗子", "english_desc": "blue mascot", "reference_source": "upload"})
+    sb["scenes"][0].update(characters=["user_01", "user_02"], scene_prompt_en="OLD: B appears on the phone at the table")
+    Image.new("RGB", (40, 40), "blue").save(folder / "characters/user_02.png")
+    store.save_storyboard(pid, sb)
+    draft = copy.deepcopy(sb)
+    draft["scenes"][0].update(characters=["user_01"], story="A站着哭，手机很大，显示系统升级")
+    assert client.put(f"/api/projects/{pid}/storyboard", json=draft).status_code == 200
+    original_dialogue = copy.deepcopy(draft["scenes"][0]["dialogues"])
+    model_calls, image_calls = [], []
+
+    def prepare(prompt, **kwargs):
+        model_calls.append((json.loads(prompt.split("分镜输入 JSON：\n", 1)[1]), kwargs))
+        return {"scene_prompt_en": "user_01 cries standing beside a huge phone showing 系统升级", "characters": ["user_01"],
+                "story": "MODEL MUST NOT REWRITE THIS", "dialogues": []}
+
+    def edit(prompt, refs, out, **kwargs):
+        image_calls.append((prompt, refs, out.name))
+        Image.new("RGB", (600, 400), "white").save(out)
+
+    monkeypatch.setattr(llm, "chat_json", prepare)
+    monkeypatch.setattr(image_gen, "edit", edit)
+    refs = {cid: folder / f"characters/{cid}.png" for cid in ("user_01", "user_02")}
+    scenes.generate_scenes(pid, store.load_storyboard(pid), refs)
+    assert len(model_calls) == len(image_calls) == 1
+    assert model_calls[0][0]["scene"]["story"] == draft["scenes"][0]["story"]
+    assert [p.name for _, p in model_calls[0][1]["image_refs"]] == ["user_01.png"]
+    prompt, attached, name = image_calls[0]
+    assert name == "scene_01_v2.png"
+    assert attached == [refs["user_01"]]
+    assert "OLD:" not in prompt and "B appears" not in prompt
+    assert "huge phone" in prompt and "Do not reserve a sidebar" not in prompt
+    assert "Story action" not in prompt
+    saved = store.load_storyboard(pid)
+    assert saved["scenes"][0]["story"] == draft["scenes"][0]["story"]
+    assert saved["scenes"][0]["dialogues"] == original_dialogue
+    assert saved["scenes"][1:] == draft["scenes"][1:]
+
+
+def test_prepared_prompt_cache_ignores_lettering_but_observes_visual_changes(project, monkeypatch):
+    pid, sb, folder = project
+    model_calls = []
+
+    def prepare(prompt, **kwargs):
+        model_calls.append(prompt)
+        return {"scene_prompt_en": "A prepared camera composition", "characters": ["user_01"]}
+
+    def edit(prompt, refs, out, **kwargs):
+        Image.new("RGB", (600, 400), "white").save(out)
+
+    monkeypatch.setattr(llm, "chat_json", prepare)
+    monkeypatch.setattr(image_gen, "edit", edit)
+    refs = {"user_01": folder / "characters/user_01.png"}
+    scene = sb["scenes"][0]
+    scenes.generate_scene(pid, sb, scene, refs, force=True)
+    scene["caption"] = "只改排版文字"
+    scene["dialogues"][0]["text"] = "新台词"
+    scenes.generate_scene(pid, sb, scene, refs, force=True)
+    assert len(model_calls) == 1
+    scene["story"] = "改成举起手机"
+    scenes.generate_scene(pid, sb, scene, refs, force=True)
+    assert len(model_calls) == 2
+
+
+@pytest.mark.parametrize("story_changed", [False, True])
+def test_direction_refresh_keeps_confirmed_edit_unless_visual_inputs_changed(project, monkeypatch, story_changed):
+    pid, sb, _ = project
+    scene = sb["scenes"][0]
+    scene["story"] = "接到退款电话"
+    scene["scene_prompt_en"] = "A shocked character beside a giant phone showing 退款5000块钱"
+    source = story._prompt_source(pid, sb, scene)
+    source.pop("visual_direction")  # Prepared before the new presentation default.
+    meta = store.load_scene_meta(pid, scene["scene_id"])
+    meta["prompt_preparation"] = {"source": source}
+    instruction = "手机和人物一样大，显示退款5000块钱，表情非常震惊"
+    meta["generation_history"] = {"v1": {"edit_instruction": instruction}}
+    store.save_scene_meta(pid, scene["scene_id"], meta)
+    if story_changed:
+        scene["story"] = "角色挂断电话后转身离开，不显示退款界面"
+    requests = []
+
+    def prepare(prompt, **kwargs):
+        data = json.loads(prompt.split("分镜输入 JSON：\n", 1)[1])
+        requests.append(data)
+        return {"scene_prompt_en": "A designed composition", "characters": scene["characters"]}
+
+    monkeypatch.setattr(llm, "chat_json", prepare)
+    before = copy.deepcopy(scene)
+    prepared = story.prepare_scene_prompt(pid, sb, scene)
+    assert len(requests) == 1  # New direction invalidates the old prepared prompt.
+    assert requests[0].get("confirmed_edit_instruction", "") == ("" if story_changed else instruction)
+    assert requests[0]["scene"]["story"] == scene["story"]
+    assert [s["scene_id"] for s in requests[0]["neighbor_compositions"]] == ["scene_02"]
+    assert scene == before and prepared["scene_prompt_en"] == "A designed composition"
+
+
+@pytest.mark.parametrize("failure", ["invalid_cast", "empty_prompt", "connection", "image"])
+def test_preparation_failure_preserves_user_edits_and_active_image(project, monkeypatch, failure):
+    pid, sb, folder = project
+    scene = sb["scenes"][0]
+    scene["story"] = "保留用户刚保存的剧情"
+    store.save_storyboard(pid, sb)
+    before = (folder / "storyboard.json").read_bytes()
+    old = store.active_raw_path(pid, scene["scene_id"])
+
+    def prepare(*args, **kwargs):
+        if failure == "connection":
+            raise RuntimeError("story provider unavailable")
+        return {"scene_prompt_en": "" if failure == "empty_prompt" else "NEW DESCRIPTION",
+                "characters": ["invented"] if failure == "invalid_cast" else ["user_01"]}
+
+    def edit(*args, **kwargs):
+        raise RuntimeError("image provider unavailable")
+
+    monkeypatch.setattr(llm, "chat_json", prepare)
+    monkeypatch.setattr(image_gen, "edit", edit)
+    with pytest.raises((ValueError, RuntimeError)):
+        scenes.generate_scene(pid, sb, scene, {"user_01": folder / "characters/user_01.png"}, force=True)
+    assert (folder / "storyboard.json").read_bytes() == before
+    assert scene["scene_prompt_en"] == "Two people discuss a phone call"
+    assert store.active_raw_path(pid, scene["scene_id"]) == old
+    assert store.scene_versions(pid, scene["scene_id"]) == [1]
+
+
+def test_edit_removes_character_from_image_references_after_preparation(project, monkeypatch):
+    pid, sb, folder = project
+    sb["characters"].append({"character_id": "user_02", "name": "B", "role": "骗子", "english_desc": "blue mascot"})
+    scene = sb["scenes"][0]
+    scene["characters"] = ["user_01", "user_02"]
+    Image.new("RGB", (40, 40), "blue").save(folder / "characters/user_02.png")
+    store.save_storyboard(pid, sb)
+    calls = []
+    monkeypatch.setattr(llm, "chat_json", lambda *a, **kw: {"scene_prompt_en": "Only user_01 with the phone", "characters": ["user_01"]})
+
+    def edit(prompt, refs, out, **kwargs):
+        calls.append((prompt, [p.name for p in refs]))
+        Image.new("RGB", (600, 400), "white").save(out)
+
+    monkeypatch.setattr(image_gen, "edit", edit)
+    refs = {cid: folder / f"characters/{cid}.png" for cid in ("user_01", "user_02")}
+    scenes.generate_scene(pid, sb, scene, refs, force=True, edit_instruction="只保留 A")
+    assert calls[0][1] == ["scene_01_v1.png", "user_01.png"]
+    assert "Image 2 = user_01" in calls[0][0] and "Image 3 = user_02" not in calls[0][0]
+    assert store.load_storyboard(pid)["scenes"][0]["characters"] == ["user_01"]
+
+
+def test_scene_objects_follow_story_without_legacy_prop_selection_or_images(project, monkeypatch):
+    pid, sb, folder = project
+    sb["style_id"] = "chibi"
+    sb["style"] = story.load_style("chibi")
+    sb["props"] = [
+        {"prop_id": "phone", "name": "手机", "english_desc": "black smartphone"},
+        {"prop_id": "old_phone", "name": "旧手机", "english_desc": "legacy pink phone",
+         "reference_prompt_version": 2, "reference_description": "legacy pink phone"},
+    ]
+    legacy = folder / "props/old_phone.png"
+    Image.new("RGB", (40, 40), "pink").save(legacy)
+    old_bytes = legacy.read_bytes()
+    # Even a previously approved object reference must not trigger generation
+    # or enter the scene. The fixture rejects all unexpected image API calls.
+    refs = characters.generate_references(pid, sb)
+    assert set(refs) == {"user_01"}
+    assert not (folder / "props/phone.png").exists()
+    refs["old_phone"] = legacy  # Also exercise callers that still supply old refs.
+    scene = sb["scenes"][0]
+    scene["props"] = ["phone", "old_phone"]
+    scene["retained_props"] = "legacy pink phone"
+    scene["location"] = "社区宣传台"
+    scene["story"] = "小王在小桌旁拿起宣传单阅读"
+    scene["background_mode"] = "transparent"
+    requests = []
+
+    def prepare(prompt, **kwargs):
+        data = json.loads(prompt.split("分镜输入 JSON：\n", 1)[1])
+        requests.append((data, kwargs))
+        return {"scene_prompt_en": "user_01 reads a flyer beside a small table", "characters": ["user_01"]}
+
+    def edit(prompt, files, out, **kwargs):
+        assert files == [refs["user_01"]]
+        assert "reads a flyer beside a small table" in prompt
+        assert "legacy pink phone" not in prompt
+        assert "no text" not in prompt and "no words" not in prompt
+        assert "big head small body" not in prompt
+        im = Image.new("RGBA", (600, 400))
+        im.paste("green", (200, 100, 400, 300))
+        im.save(out)
+
+    monkeypatch.setattr(llm, "chat_json", prepare)
+    monkeypatch.setattr(image_gen, "edit", edit)
+    scenes.generate_scene(pid, sb, scene, refs, force=True)
+    data, kwargs = requests[0]
+    assert data["scene"]["story"] == "小王在小桌旁拿起宣传单阅读"
+    assert data["scene"]["location"] == "社区宣传台"
+    assert "props" not in data and "props" not in data["scene"] and "retained_props" not in data["scene"]
+    assert [path for label, path in kwargs["image_refs"]] == [refs["user_01"]]
+    assert legacy.read_bytes() == old_bytes
+    assert store.load_storyboard(pid)["props"] == sb["props"]
+    assert scenes._ref_files(pid, sb, scene, refs) == [refs["user_01"]]
+    scene["props"] = []
+    sb["props"][0]["english_desc"] = "red phone"
+    story.prepare_scene_prompt(pid, sb, scene)
+    assert len(requests) == 1  # Legacy prop edits do not invalidate preparation.
 
 
 def test_bad_upload_and_traversal_are_rejected(project, client):
@@ -1294,7 +1575,7 @@ def test_footer_text_and_image_preview_save_and_asset_usage(client,project):
     assert client.post(f"/api/projects/{pid}/long-preview",json={"footer_blocks":blocks}).status_code==422
 
 
-@pytest.mark.parametrize("template", ["cards", "filmstrip", "comic_strip"])
+@pytest.mark.parametrize("template", ["cards", "filmstrip", "comic_strip", "scroll"])
 def test_page_margins_surround_content_and_export_centimeters(client, project, template):
     from PIL import ImageChops
     pid, sb, folder = project
@@ -1310,8 +1591,18 @@ def test_page_margins_surround_content_and_export_centimeters(client, project, t
     assert padded.size == (1080, base.height+81+135)
     assert ImageChops.difference(base, padded.crop((0,81,1080,81+base.height))).getbbox() is None
     bg = TEMPLATES[template]["background"]
-    assert ImageChops.difference(padded.crop((0,0,1080,81)),Image.new("RGB",(1080,81),bg)).getbbox() is None
-    assert ImageChops.difference(padded.crop((0,padded.height-135,1080,padded.height)),Image.new("RGB",(1080,135),bg)).getbbox() is None
+    if template == "scroll":
+        accent = Image.new("RGB", (1, 1), TEMPLATES[template]["accent"]).getpixel((0, 0))
+        background = Image.new("RGB", (1, 1), bg).getpixel((0, 0))
+        # The page border remains continuous across both margin/content joins.
+        for y in (0, 40, 80, 81, 101, padded.height - 136, padded.height - 135, padded.height - 1):
+            for x in (25, 36, 1044, 1055):
+                assert padded.getpixel((x, y)) == accent
+            assert padded.getpixel((30, y)) == background
+        assert padded.getpixel((540, 40)) == background
+    else:
+        assert ImageChops.difference(padded.crop((0,0,1080,81)),Image.new("RGB",(1080,81),bg)).getbbox() is None
+        assert ImageChops.difference(padded.crop((0,padded.height-135,1080,padded.height)),Image.new("RGB",(1080,135),bg)).getbbox() is None
     assert after["scenes"][0]["y"] == before["scenes"][0]["y"]+81
     assert after["footer_blocks"][-1]["y"] == before["footer_blocks"][-1]["y"]+81
     sb["long_layout"] = options

@@ -3,9 +3,9 @@
 
 目录结构：
     projects/{project_id}/
-        storyboard.json           故事表（含 style/characters/props/scenes，场景上有 stale 标记）
+        storyboard.json           故事表（含 style/characters/scenes，场景上有 stale 标记）
         characters/{cid}.png      人物标准照
-        props/{pid}.png           道具标准照
+        props/{pid}.png           旧项目的道具标准照（保留文件，不再生成或引用）
         assets/{asset_id}.png     编辑器上传的图片素材
         assets.json               素材注册表（asset_id → 安全相对路径）
         fonts/{font_id}.ttf       项目字体槽位

@@ -492,9 +492,10 @@ def render_long_image(project_id, sb, options=None):
             box["y"] += margin_top
     total = canvas.height
     if kind == "scroll":
-        # Continue the side borders through the bottom margin to the page edge.
+        # Continue the side borders through both outer margins to the page edges.
         border_draw = ImageDraw.Draw(canvas)
         for x in (25, 36, PANEL_W - 25, PANEL_W - 36):
+            border_draw.line((x, 0, x, margin_top + 20), fill=accent, width=2)
             border_draw.line((x, content_height + margin_top - 20, x, total - 1), fill=accent, width=2)
     stickers = sorted(settings.get("stickers", []), key=lambda item: item.get("z_index", 0))
     for sticker in stickers:
