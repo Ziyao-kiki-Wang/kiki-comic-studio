@@ -271,6 +271,16 @@ def _validate_storyboard(sb: dict):
             raise HTTPException(422, "屏幕描述格式无效")
         if isinstance(inset, dict) and len(inset.get("screen_prompt_en", "")) > 2000:
             raise HTTPException(422, "屏幕描述最多 2000 字")
+        if not isinstance(s.get("scene_prompt_en"), str) or not s["scene_prompt_en"].strip():
+            raise HTTPException(422, f"第 {i + 1} 格：画面描述不能为空")
+        if not isinstance(s.get("characters"), list) or any(
+            not isinstance(cid, str) for cid in s.get("characters", [])
+        ):
+            raise HTTPException(422, f"第 {i + 1} 格：出场人物格式无效")
+        if not isinstance(s.get("props", []), list) or any(
+            not isinstance(p, str) for p in s.get("props", [])
+        ):
+            raise HTTPException(422, f"第 {i + 1} 格：出场道具格式无效")
         if screen_enabled(s) and s.get("screen_mode") == "inset" and not (inset or {}).get("screen_prompt_en", "").strip():
             raise HTTPException(422, f"第 {i + 1} 格：请填写屏幕特写要显示的内容")
         if s.get("background_mode") not in (None, "scene", "transparent"):
@@ -347,6 +357,9 @@ def update_storyboard(pid: str, sb: dict = Body(...)):
         c["reference_source"] = protected[c["character_id"]].get(
             "reference_source", "generated"
         )
+    changed_characters = {c["character_id"] for c in sb.get("characters", [])
+                          if any(c.get(k) != protected[c["character_id"]].get(k)
+                                 for k in ("name", "role", "description", "english_desc"))}
     for s in sb["scenes"]:
         previous = next(
             (item for item in old["scenes"] if item["scene_id"] == s["scene_id"]), None
@@ -355,7 +368,14 @@ def update_storyboard(pid: str, sb: dict = Body(...)):
             screen_enabled(s) != screen_enabled(previous)
             or (screen_enabled(s) and any(s.get(k) != previous.get(k) for k in ("screen_mode", "screen_inset")))
         )
-        generation_changed = previous is None or screen_changed or background_mode(sb, s) != background_mode(old, previous)
+        story_changed = previous is None or any(
+            s.get(k) != previous.get(k)
+            for k in ("story", "scene_prompt_en", "characters", "location")
+        )
+        generation_changed = (previous is None or screen_changed or story_changed
+                              or background_mode(sb, s) != background_mode(old, previous)
+                              or bool(changed_characters.intersection(s.get("characters", [])))
+                              or sb.get("style") != old.get("style"))
         visual_changed = generation_changed or (
             previous is None
             or any(

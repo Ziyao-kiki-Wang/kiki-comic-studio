@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""第 2 步：人物/道具标准照生成。"""
+"""第 2 步：人物标准照生成。"""
 
 from pathlib import Path
 import shutil
@@ -36,7 +36,7 @@ def _neg(sb: dict) -> str:
 def generate_references(
     project_id: str, sb: dict, only_character: str | None = None
 ) -> dict[str, Path]:
-    """画所有人物/道具标准照，返回 {id: 图片路径}。已存在的默认跳过。
+    """画人物标准照，返回 {id: 图片路径}。已存在的默认跳过。
 
     only_character 指定时只重画该人物（即使已存在），并把引用它的场景标 stale。
     """
@@ -45,7 +45,7 @@ def generate_references(
     neg = _neg(sb)
     refs: dict[str, Path] = {}
 
-    print("第 2 步：画人物/道具标准照……")
+    print("第 2 步：画人物标准照……")
     for ch in sb.get("characters", []):
         cid = ch["character_id"]
         path = pdir / "characters" / f"{cid}.png"
@@ -68,6 +68,11 @@ def generate_references(
         print(f"  画人物 {ch['name']}（{cid}）……（约 1 分钟）")
         prompt = (
             f"{ch['english_desc']}, full body, front view, standing, "
+            "the entire character silhouette must fit inside the canvas, from the highest hair tip, "
+            "topknot or head accessory to the soles of both feet. Show complete hair, accessories, "
+            "hands, clothing and feet; never crop them at an image edge. "
+            "Leave at least 8% of the image height as clear space ABOVE the highest hair or accessory, "
+            "plus clear space on both sides and below the feet. Scale the character down to fit if needed. "
             f"isolated on a genuinely transparent alpha background, PNG, no painted backdrop, {style}, {neg}"
         )
         image_gen.generate(prompt, path, size="1024x1536", background="transparent")
@@ -82,23 +87,5 @@ def generate_references(
                 print(
                     f"  [stale] {cid} 已重画，这些格子引用了它、需要重跑：{', '.join(marked)}"
                 )
-
-    if not only_character:
-        for prop in sb.get("props", []):
-            pid = prop["prop_id"]
-            path = pdir / "props" / f"{pid}.png"
-            refs[pid] = path
-            if path.exists():
-                print(f"  {pid} 已存在，跳过")
-                continue
-            print(f"  画道具 {prop['name']}（{pid}）……（约 1 分钟）")
-            prompt = (
-                f"{prop['english_desc']}, single object, centered, "
-                f"genuinely transparent alpha background, PNG, no painted backdrop, product shot, {style}, {neg}"
-            )
-            image_gen.generate(prompt, path, size="1024x1024", background="transparent")
-    else:
-        for prop in sb.get("props", []):
-            refs[prop["prop_id"]] = pdir / "props" / f"{prop['prop_id']}.png"
 
     return refs

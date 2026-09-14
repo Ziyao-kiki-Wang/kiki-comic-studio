@@ -153,6 +153,25 @@ export default function ProjectWorkbench() {
     }));
     setDirty(true);
   }
+  function toggleSceneCharacter(index, id) {
+    setSb((prev) => ({
+      ...prev,
+      scenes: prev.scenes.map((s, i) => {
+        if (i !== index) return s;
+        const list = new Set(s.characters || []);
+        if (list.has(id)) list.delete(id);
+        else list.add(id);
+        return {
+          ...s,
+          characters: [...list],
+          reference_assets: (s.reference_assets || []).filter(
+            (r) => r.mode !== "replace_character" || list.has(r.replace_character_id),
+          ),
+        };
+      }),
+    }));
+    setDirty(true);
+  }
   if (!project || !sb)
     return (
       <div className="page">
@@ -366,7 +385,7 @@ export default function ProjectWorkbench() {
             <button
               disabled={busy || dirty}
               onClick={() =>
-                action({ action: "prepare_characters" }, "补齐角色与道具")
+                action({ action: "prepare_characters" }, "补齐角色")
               }
             >
               生成缺失的角色形象
@@ -436,6 +455,55 @@ export default function ProjectWorkbench() {
                 <span className="stale-badge">角色已变化，建议重跑</span>
               )}
             </h3>
+            <label className="dialogue-row">
+              <span className="speaker">场景</span>
+              <input
+                value={s.location || ""}
+                maxLength={100}
+                disabled={busy}
+                onChange={(e) => updateScene(i, { location: e.target.value })}
+              />
+            </label>
+            <div className="scene-cast">
+              <span className="cast-label">出场人物</span>
+              {sb.characters.map((c) => (
+                <label key={c.character_id} className="cast-chip">
+                  <input
+                    type="checkbox"
+                    checked={(s.characters || []).includes(c.character_id)}
+                    disabled={busy}
+                    onChange={() => toggleSceneCharacter(i, c.character_id)}
+                  />
+                  {c.name}
+                </label>
+              ))}
+              {!(s.characters || []).length && (
+                <span className="muted">未选角色时，画面只含场景与道具</span>
+              )}
+            </div>
+            <label className="scene-story">
+              本格剧情与动作
+              <textarea
+                rows={2}
+                maxLength={1000}
+                value={s.story || ""}
+                disabled={busy}
+                placeholder="这一格发生了什么：谁在做什么动作，例如「客户签字，中介指着合同」"
+                onChange={(e) => updateScene(i, { story: e.target.value })}
+              />
+              <span className="muted">手机、桌椅等物品会根据场景和剧情自动绘制。</span>
+            </label>
+            <details>
+              <summary>画面细节描述</summary>
+              <textarea
+                rows={4}
+                maxLength={4000}
+                value={s.scene_prompt_en || ""}
+                disabled={busy}
+                onChange={(e) => updateScene(i, { scene_prompt_en: e.target.value })}
+              />
+              <p className="muted">默认采用夸张表情、鲜明动作和有主次的物品构图，让每格更有表现力。可补充镜头、物品大小或克制程度；AI 会结合角色参考图和最新剧情整理画面，剧情与出场人物以你的当前设置为准。</p>
+            </details>
             {(s.dialogues || []).map((d, j) => (
               <label className="dialogue-row" key={j}>
                 <span className="speaker">
@@ -493,7 +561,7 @@ export default function ProjectWorkbench() {
         <div className="story-generate-actions">
           <div><button className="primary" disabled={busy || !confirmed} onClick={saveAndGenerate}>{busy ? "生成中…" : task?.status === "failed" ? "重试生成漫画" : "生成漫画"}</button>
           <button disabled={busy || !dirty} onClick={save}>仅保存故事</button></div>
-          <p className="muted">{!confirmed ? "请先在上方确认角色形象。" : "点击后自动保存设置，生成缺少或需要更新的画面，并更新文字和排版。"}</p>
+          <p className="muted">{!confirmed ? "请先在上方确认角色形象。" : "点击后自动保存；有画面改动的分镜会先结合角色图整理描述，再生成图片。只改台词和排版时直接更新成品。"}</p>
           {busy && <p role="status">{task?.logs?.at(-1) || "正在保存设置并准备生成…"}</p>}
           {error && <p className="error" role="alert">{error}</p>}
         </div>
@@ -578,35 +646,6 @@ export default function ProjectWorkbench() {
         onSave={saveLong}
       />}
       {step === 'stickers' && <DecorationEditor pid={pid} project={project} busy={busy || dirty} onSave={saveLong} />}
-      {step === 'story' && (sb.props || []).length > 0 && (
-        <details className="card">
-          <summary>道具参考素材</summary>
-          <div className="asset-grid">
-            {sb.props.map((p) => (
-              <div key={p.prop_id}>
-                {project.prop_urls[p.prop_id] && (
-                  <img
-                    className="scene-img"
-                    src={fileUrl(project.prop_urls[p.prop_id])}
-                    alt={p.name}
-                  />
-                )}
-                <p>{p.name}</p>
-                {project.prop_urls[p.prop_id] && (
-                  <a
-                    className="button"
-                    href={
-                      fileUrl(project.prop_urls[p.prop_id]) + "&download=true"
-                    }
-                  >
-                    下载道具参考图
-                  </a>
-                )}
-              </div>
-            ))}
-          </div>
-        </details>
-      )}
     </div>
   );
 }

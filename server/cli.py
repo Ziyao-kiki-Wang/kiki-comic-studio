@@ -32,7 +32,7 @@ def _reload_sb(project_id: str) -> dict:
 
 
 def run_pipeline(project_id: str):
-    """全流程：人物/道具 → 场景 → 屏幕素材 → 合成 → 拼长图（每步有缓存自动跳过）。"""
+    """全流程：人物 → 场景 → 屏幕素材 → 合成 → 拼长图（每步有缓存自动跳过）。"""
     sb = _reload_sb(project_id)
     stale = store.stale_scenes(sb)
     if stale:

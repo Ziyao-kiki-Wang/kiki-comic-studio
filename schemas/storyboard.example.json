@@ -32,15 +32,6 @@
     }
   ],
 
-  "props": [
-    {
-      "prop_id": "phone_01",
-      "name": "王大爷的手机",
-      "english_desc": "a dark gray smartphone with a plain back, no logo",
-      "reference_image": "props/phone_01.png"
-    }
-  ],
-
   "scenes": [
     {
       "scene_id": "scene_01",
