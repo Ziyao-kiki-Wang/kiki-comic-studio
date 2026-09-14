@@ -1,0 +1,1186 @@
+我把这一轮 GitHub 调研做下来以后，结论比我原先预想的要好：**我们不需要从零造这套系统。**
+
+我目前没有找到一个 repo 能完整覆盖你要求的：
+
+> 主题 → 文稿/分镜 → Character Bible → 跨图人物一致 → 分层人物/背景 → 气泡/字体 → 长图 → 可编辑 PPTX → 审核 → Component-level rerun
+
+但已经找到几个项目分别把其中最难的部分做掉了。尤其是 **LumenX + manga-studio + Konva + PptxGenJS** 这一组合，基本可以搭出我们需要的产品。
+
+---
+
+# 1. 最值得看的：Alibaba LumenX
+
+[GitHub：alibaba/lumenx](https://github.com/alibaba/lumenx?utm_source=chatgpt.com)
+
+这个是我这一轮调研里，**最适合作为“大系统骨架”参考甚至直接 fork 的项目**。
+
+它目前已经有：
+
+```text
+Script
+ ↓
+角色 / 场景 / 道具提取
+ ↓
+Art Direction
+ ↓
+角色资产
+ ↓
+Storyboard
+ ↓
+分镜图
+ ↓
+Video
+ ↓
+Assembly
+```
+
+也就是说，你前面定义的：
+
+* Project
+* Story
+* Character
+* Scene
+* Asset
+* Storyboard
+* Generation Task
+
+这些数据模型，它基本都已经有了。
+
+更关键的是它不是个简单 Demo。目前 GitHub 仓库有数百次 commit，并且还在持续开发；整个项目是 MIT License。([GitHub][1])
+
+### 和你的需求重合到什么程度？
+
+非常高。
+
+它的剧本阶段已经支持 LLM 自动提取：
+
+```text
+角色
+场景
+道具
+结构化分镜
+```
+
+还存在统一 Art Direction，用来控制整个作品的视觉风格。([GitHub][2])
+
+尤其值得注意的是它的**人物资产流程**：
+
+> 先生成无背景人物全身照，再基于该人物生成三视图和头像，把这些作为后续所有画面的参考资产。
+
+这基本就是我们上一轮定义的：
+
+```text
+Character Bible
++
+Character Reference Sheet
+```
+
+而且之后分镜生成时，可以选择：
+
+```text
+Character Reference
+Scene Reference
+Prop Reference
+```
+
+参与图像生成。([GitHub][2])
+
+甚至 README 明确写过：
+
+> 拖拽式分镜编辑器，组合人物、背景与特效。
+
+所以它已经开始向我们说的：
+
+```text
+Scene Graph
+```
+
+这个方向走了。([GitHub][2])
+
+---
+
+# 2. 它为什么还不能直接解决你的问题？
+
+因为 LumenX 的目标是：
+
+> **AI 漫剧 / 视频**
+
+而我们是：
+
+> **静态公众号条漫 / 长图**
+
+所以它越到后半段，越开始偏离我们：
+
+```text
+我们                     LumenX
+
+Storyboard               Storyboard
+    ↓                        ↓
+Illustration              Key Frame
+    ↓                        ↓
+Bubble/Text               Video
+    ↓                        ↓
+Long Image                Audio
+    ↓                        ↓
+PPTX                      FFmpeg
+```
+
+而且 LumenX 自己在设计文档里也明确说，它不是 Photoshop/Figma 那种重型专业编辑器。([GitHub][3])
+
+所以我的判断是：
+
+> **LumenX 非常适合抄/复用“前 60%”，不适合拿它的后 40% 硬改。**
+
+---
+
+# 3. 第二个项目反而和我们静态漫画特别像：manga-studio
+
+[GitHub：ahmet360/manga-studio](https://github.com/ahmet360/manga-studio?utm_source=chatgpt.com)
+
+这个项目的 star/工程成熟度远不如 LumenX，而且目前仓库历史很短，所以**我不会建议把整个产品建立在它上面**。
+
+但是：
+
+> 它的生产架构是这一轮里面**最像你需求的**。
+
+它已经明确实现：
+
+```text
+Script
+ ↓
+Panel rendering
+ ↓
+Background plate
++
+Character A cutout
++
+Character B cutout
+ ↓
+Layer composition
+ ↓
+Speech bubbles
+ ↓
+Page assembly
+```
+
+并且它明确写的是：
+
+> 多人物场景生成背景板 + 每个人物独立透明 cutout，像 Photoshop layer 一样进行 compositing；每一层都可以独立导出、替换或者重新生成。([GitHub][4])
+
+这句话非常关键。
+
+因为这就是我们上一轮说的：
+
+```text
+Component-level regeneration
+```
+
+比如：
+
+```text
+Scene 04
+
+background.png
+character_A.png
+character_B.png
+bubble_01
+bubble_02
+caption
+```
+
+审核说：
+
+> B 的动作不好。
+
+只：
+
+```text
+regenerate(character_B)
+```
+
+就行。
+
+**其他东西都不用动。**
+
+---
+
+# 4. manga-studio 连“不要让 AI 画字”都和我们想的一样
+
+它的做法也是：
+
+```text
+Diffusion
+→ 只画 illustration
+
+PIL / Layout engine
+→ 气泡
+→ 对话
+→ SFX
+→ caption
+```
+
+并且明确把 `text, speech bubble` 放在 negative prompt 里，避免生图模型画字。([GitHub][4])
+
+这和我上一轮给你的建议完全一致：
+
+> **文本永远是对象，不是图片像素。**
+
+这样才：
+
+```text
+可改字号
+可换字体
+可改字
+可改气泡
+可审核
+```
+
+---
+
+# 5. 它甚至已经有自动气泡定位
+
+这个也蛮厉害。
+
+它已经支持：
+
+```text
+normal
+thought
+shout
+narration
+sfx
+```
+
+以及：
+
+```text
+top-left
+top-right
+bottom-left
+bottom-right
+center
+auto
+```
+
+而 `auto` 模式甚至会扫描图片：
+
+> 找画面细节较少的位置放气泡，尽量避免挡脸。([GitHub][4])
+
+所以我们的：
+
+```text
+Bubble Placement Agent
+```
+
+第一版甚至都不用自己从头写。
+
+---
+
+# 6. 第三个：AI-Comic-Generator
+
+[GitHub：Dapeng960208/AI-Comic-Generator](https://github.com/Dapeng960208/AI-Comic-Generator?utm_source=chatgpt.com)
+
+这个项目有一个很有意思的地方：
+
+**它的设计哲学几乎就是我们上一轮聊出来的。**
+
+作者明确写：
+
+> 整个 Comic Workflow 全部由 JSON 驱动。
+
+包括：
+
+```text
+Story
+Character
+Storyboard
+Global Config
+```
+
+都是结构化 JSON。([GitHub][5])
+
+它已经实现：
+
+* Project Management
+* Topic/story → 分镜
+* 自动角色抽取
+* Character Workshop
+* 三视图
+* 角色图作为后续 I2I reference
+* 全局 style
+* Storyboard Editor
+* 单格重新生成
+* Batch Generation
+* 前文 Context
+* 角色合并去重
+
+而且 MIT License。([GitHub][5])
+
+所以从**产品语义**来说，它可能比 LumenX 更贴近我们。
+
+---
+
+# 7. 但我不会把 AI-Comic-Generator 当主底座
+
+原因就是成熟度。
+
+目前只有大约：
+
+```text
+20 commits
+12 stars
+3 forks
+```
+
+而 LumenX 已经有数百 commits、测试、model catalog、provider adapter、桌面部署等比较完整的工程基础。([GitHub][5])
+
+所以我的定位是：
+
+### AI-Comic-Generator
+
+拿来：
+
+> **抄数据设计 + 抄 Workflow UI。**
+
+而不是：
+
+> 整个 fork 成我们的 production codebase。
+
+---
+
+# 8. 还有一个规模比较大的：AIComicBuilder
+
+[GitHub：LingyiChen-AI/AIComicBuilder](https://github.com/LingyiChen-AI/AIComicBuilder?utm_source=chatgpt.com)
+
+这个已经是一个 1.7k star 左右、Apache-2.0 的项目。([GitHub][6])
+
+它的流程：
+
+```text
+剧本输入
+↓
+剧本解析
+↓
+角色提取
+↓
+角色四视图
+↓
+智能分镜
+↓
+参考帧
+↓
+视频提示词
+↓
+视频
+```
+
+尤其值得我们偷的是它的 **Pipeline UX**。
+
+每个阶段都可以：
+
+```text
+单独触发
+批量触发
+rerun
+```
+
+而且它已经做了：
+
+```text
+Storyboard Version
+V1
+V2
+V3
+```
+
+并计划支持不同版本对比。([GitHub][7])
+
+这个其实非常符合你的审核工作流。
+
+以后可能：
+
+```text
+审核人：第 3、5 张不行
+
+Version 1
+ ↓
+修改 scene 3 / 5
+ ↓
+Version 2
+```
+
+而不是把整个老版本覆盖掉。
+
+---
+
+# 9. AID：值得参考，但有点太重
+
+[GitHub：gzxx-2025/aid-server](https://github.com/gzxx-2025/aid-server?utm_source=chatgpt.com)
+
+这是另一套中文的完整 AI 漫画/漫剧平台。
+
+已经支持：
+
+```text
+剧本
+角色
+道具
+场景
+分镜
+文生图
+图生图
+多图融合
+视频
+配音
+项目管理
+任务调度
+失败重试
+多模型厂商
+用户系统
+计费
+后台
+```
+
+并且三端都是 MIT。([GitHub][8])
+
+但它已经接近一个：
+
+> **SaaS 运营平台**
+
+而不是一个内部生产工具。
+
+Java server + Nuxt + Admin + payment + user + billing……
+
+对我们的需求来说太胖。
+
+所以我的建议：
+
+> **当竞品和数据模型参考，不当代码底座。**
+
+---
+
+# 10. 一个历史项目可以直接排除：AI Comic Factory
+
+[GitHub：jbilcke-hf/ai-comic-factory](https://github.com/jbilcke-hf/ai-comic-factory?utm_source=chatgpt.com)
+
+它以前非常有名，约 1.3k stars，LLM + SDXL 自动生成漫画，也做过 speech bubble。
+
+但项目已经在 **2025 年 10 月 31 日 archived**。([GitHub][9])
+
+所以：
+
+> 不建议作为现在的技术底座。
+
+最多看看 UI 和早期 Prompt 设计。
+
+---
+
+# 11. 人物一致性：这一块已经有大量现成方案
+
+这里我们实际上不用自己研究算法。
+
+比较经典的：
+
+### StoryDiffusion
+
+[GitHub：HVision-NKU/StoryDiffusion](https://github.com/HVision-NKU/StoryDiffusion?utm_source=chatgpt.com)
+
+就是专门解决：
+
+```text
+Scene 1 → Alice
+Scene 2 → Alice
+Scene 3 → Alice
+...
+```
+
+跨长序列人物一致性。
+
+它通过 Consistent Self-Attention 做 character-consistent sequence generation，而且官方 Demo 本身就是 Comic Generation。([GitHub][10])
+
+不过它主要还是 SDXL 时代方案，而且推荐二十多 GB GPU，所以我不会把它作为我们 2026 年 MVP 的第一选择。([GitHub][10])
+
+---
+
+# 12. 更适合我们当前路线的其实是 reference editing
+
+例如：
+
+### Qwen-Image / Qwen-Image-Edit
+
+[GitHub：QwenLM/Qwen-Image](https://github.com/QwenLM/Qwen-Image?utm_source=chatgpt.com)
+
+Qwen-Image-Edit 本身明确强调：
+
+> 在大幅修改图片语义的同时保持角色 identity。
+
+并且可以：
+
+```text
+换服装
+换背景
+转视角
+添加/删除元素
+修改局部
+```
+
+甚至后续版本支持：
+
+```text
+person + person
+person + product
+person + scene
+```
+
+这种 multi-image editing。([GitHub][11])
+
+而且 Qwen-Image repo 是 Apache-2.0。([GitHub][12])
+
+这个就非常适合我们的：
+
+```text
+Character reference
++
+Scene reference
++
+Prompt
+↓
+Scene image
+```
+
+路线。
+
+---
+
+# 13. 真人 → 漫画人物也不用自己研究
+
+已经有成熟模块，例如：
+
+### IP-Adapter
+
+[GitHub：Tencent IP-Adapter](https://github.com/tencent-ailab/IP-Adapter?utm_source=chatgpt.com)
+
+它可以把 reference image 作为 image prompt，而且能和 ControlNet 等结构控制一起使用，Apache-2.0。([GitHub][13])
+
+以及：
+
+### PhotoMaker
+
+[GitHub：TencentARC/PhotoMaker](https://github.com/TencentARC/PhotoMaker?utm_source=chatgpt.com)
+
+专门做 identity customization，也是 Apache-2.0 代码。([GitHub][14])
+
+InstantID 也可以做单张人脸 identity preserving，不过它存在一个商业产品需要注意的 license 坑：
+
+> InstantID 代码本身是 Apache-2.0，但其 InsightFace 依赖/部分 checkpoint 的许可不等同于无限制商业使用。([GitHub][15])
+
+所以如果这是以后会商业部署的东西，我反而不会把 InstantID 放第一优先级。
+
+---
+
+# 14. “人物透明图 / 分层”也完全不用自己写算法
+
+两个很好用的现成项目：
+
+### BiRefNet
+
+[GitHub：ZhengPeng7/BiRefNet](https://github.com/ZhengPeng7/BiRefNet?utm_source=chatgpt.com)
+
+高分辨率前景分割 / background removal，MIT。([GitHub][16])
+
+### rembg
+
+[GitHub：danielgatis/rembg](https://github.com/danielgatis/rembg?utm_source=chatgpt.com)
+
+非常成熟，可以：
+
+```text
+CLI
+Python API
+HTTP Server
+Docker
+```
+
+而且 MIT，目前约 23k stars。([GitHub][17])
+
+所以：
+
+```text
+AI generate character
+↓
+BiRefNet / rembg
+↓
+character.png with alpha
+```
+
+这一块完全现成。
+
+---
+
+# 15. 气泡模块也有一个非常贴需求的 repo
+
+这个我挺喜欢：
+
+### pretext-comic
+
+[GitHub：ShipItAndPray/pretext-comic](https://github.com/ShipItAndPray/pretext-comic?utm_source=chatgpt.com)
+
+它专门负责：
+
+```text
+Speech Bubble
+```
+
+而且已经有：
+
+```text
+ellipse
+cloud
+thought
+shout
+custom shape
+```
+
+支持：
+
+* 自动文字换行
+* 自动计算字体大小
+* 气泡 tail
+* drag-and-drop
+* BubbleEditor
+* Canvas rendering
+
+甚至文字不是简单矩形换行，而是根据气泡形状算每一行实际可以放多少宽度。([GitHub][18])
+
+这个非常值得直接拿。
+
+---
+
+# 16. 真正的可编辑画布，我建议用 Konva
+
+### Konva.js
+
+[GitHub：konvajs/konva](https://github.com/konvajs/konva?utm_source=chatgpt.com)
+
+这个不是漫画项目。
+
+但它其实正好是我们需要的：
+
+```text
+Scene Graph Engine
+```
+
+每一个东西：
+
+```text
+Image
+Text
+Shape
+Bubble
+Character
+Background
+Banner
+```
+
+都是独立 node。
+
+它天然支持：
+
+```text
+drag
+resize
+rotate
+layer
+event
+selection
+transform
+export
+```
+
+MIT，14k+ stars，而且 2026 年还在持续发布。([GitHub][19])
+
+所以你以后网页里的编辑器完全可以是：
+
+```text
+React
++
+react-konva
+```
+
+审核人员直接在浏览器：
+
+```text
+拖人物
+拉大
+缩小
+改字
+拖气泡
+删除 banner
+换图
+```
+
+这就不需要让审核人进 PS 了。
+
+---
+
+# 17. 然后最后再导出真正可编辑的 PPTX
+
+这里已经有成熟基础库：
+
+### PptxGenJS
+
+[GitHub：gitbrent/PptxGenJS](https://github.com/gitbrent/pptxgenjs?utm_source=chatgpt.com)
+
+MIT，6k+ stars。
+
+能程序化生成：
+
+```text
+Text
+Shape
+Image
+Table
+SVG
+```
+
+全部是 PowerPoint 原生 object。([GitHub][20])
+
+所以我们的 Scene Graph：
+
+```json
+{
+  "type": "speech_bubble",
+  "x": 310,
+  "y": 220,
+  "width": 400,
+  "height": 180
+}
+```
+
+可以同时：
+
+```text
+             ┌→ Konva Web Editor
+Scene JSON ──┤
+             └→ PptxGenJS → editable.pptx
+```
+
+这会非常漂亮。
+
+---
+
+# 18. 甚至已经有人做了 Agent → editable PPTX
+
+还有个新项目：
+
+### pptx-gen
+
+[GitHub：alfonsograziano/pptx-gen](https://github.com/alfonsograziano/pptx-gen?utm_source=chatgpt.com)
+
+它专门给 coding agent 用：
+
+> AI Agent 生成真正 editable 的 PowerPoint。
+
+所有：
+
+```text
+shape
+text
+arrow
+image
+```
+
+都是 PowerPoint native objects，而不是截图。([GitHub][21])
+
+目前项目很新，所以还是：
+
+> **参考架构 > 直接作为 dependency。**
+
+底层我更信 PptxGenJS。
+
+---
+
+# 19. 所以现在整个 GitHub 拼图其实已经出来了
+
+我把我们上一轮的需求和现有开源项目对应一下：
+
+| 我们需要的模块                       | 最值得复用                                             |
+| ----------------------------- | ------------------------------------------------- |
+| Project / Pipeline            | **LumenX**                                        |
+| Story → structured storyboard | **LumenX / AI-Comic-Generator**                   |
+| Character extraction          | **LumenX**                                        |
+| Character Bible               | **LumenX / AI-Comic-Generator**                   |
+| Character reference sheet     | **LumenX / AIComicBuilder**                       |
+| 人物一致性                         | **Qwen-Image-Edit / IP-Adapter / StoryDiffusion** |
+| 真人 → 漫画人物                     | **Qwen-Image-Edit / PhotoMaker**                  |
+| Background / character 分层     | **manga-studio**                                  |
+| 人物抠图                          | **BiRefNet / rembg**                              |
+| Component-level rerun         | **manga-studio 思路**                               |
+| 气泡                            | **pretext-comic + manga-studio**                  |
+| Browser 可编辑画布                 | **Konva / react-konva**                           |
+| Version / rerun workflow      | **AIComicBuilder**                                |
+| 可编辑 PPTX                      | **PptxGenJS**                                     |
+| Final long PNG                | 自己写，很简单                                           |
+| Font License Registry         | 自己写，很简单                                           |
+
+这其实已经不是：
+
+> “有没有人做过？”
+
+而变成了：
+
+> **“我们该怎么把这些成熟模块拼起来？”**
+
+---
+
+# 20. 我现在最推荐的架构不是 fork 一个 repo 然后魔改到底
+
+而是：
+
+```text
+                 ┌──────────────────────┐
+                 │  Our Project Model   │
+                 │  JSON / Database     │
+                 └──────────┬───────────┘
+                            │
+           ┌────────────────┼────────────────┐
+           ↓                ↓                ↓
+      Story Engine     Character Engine   Style Engine
+    LLM / LumenX       LumenX logic       Global Config
+           │                │
+           ↓                ↓
+        Scenes      Character References
+           │                │
+           └───────┬────────┘
+                   ↓
+             Image Provider
+        ┌──────────┼──────────┐
+        ↓          ↓          ↓
+      Qwen       Gemini      GPT
+      Image       Image     Image
+                   │
+                   ↓
+              Raw Assets
+                   │
+         ┌─────────┴─────────┐
+         ↓                   ↓
+   Background          Characters
+                         ↓
+                  BiRefNet/rembg
+                         ↓
+                  Transparent PNG
+         └──────────┬────────┘
+                    ↓
+              Scene Graph
+                    ↓
+        ┌───────────┼───────────┐
+        ↓           ↓           ↓
+     Konva       PptxGenJS     Renderer
+       ↓             ↓           ↓
+ Browser Editor   PPTX       Long PNG
+```
+
+---
+
+# 21. Agent 层反而可以很薄
+
+我不会用 LangGraph 之类一上来造一个“六 Agent 自主协作系统”。
+
+第一版其实应该是：
+
+```text
+Workflow Orchestrator
+
+Step 1 Story
+Step 2 Character
+Step 3 Scene Spec
+Step 4 Render
+Step 5 Layout
+Step 6 Review
+```
+
+LLM 只在：
+
+```text
+Story
+Character description
+Scene direction
+Revision interpretation
+```
+
+这些地方发挥作用。
+
+其他全部 deterministic。
+
+这会比“Agent Everywhere”稳定很多。
+
+---
+
+# 22. 如果让我现在做技术决策，我会这么选
+
+### 产品骨架
+
+**参考 / fork LumenX。**
+
+不是因为它和我们最像，而是：
+
+> 工程基础最好。
+
+已经有：
+
+```text
+FastAPI
+React
+Project
+Assets
+Pipeline
+Provider abstraction
+Task management
+Local storage
+Model catalog
+```
+
+这些东西我们没有任何必要再写一遍。([GitHub][3])
+
+---
+
+### 静态漫画生产逻辑
+
+**大量参考 manga-studio。**
+
+尤其直接抽：
+
+```text
+layered rendering
+bubble logic
+character cutout
+panel composition
+partial rerun
+```
+
+---
+
+### 编辑器
+
+**react-konva。**
+
+不要自己造 Canvas interaction。
+
+---
+
+### 图片模型
+
+MVP 我反而建议做：
+
+```text
+ImageProvider interface
+```
+
+而不是绑定某一个。
+
+比如：
+
+```typescript
+interface ImageProvider {
+  generateScene(...)
+  generateCharacter(...)
+  editImage(...)
+  generateWithReferences(...)
+}
+```
+
+第一批 adapter：
+
+```text
+Qwen Image
+Gemini Image
+OpenAI Image
+```
+
+以后：
+
+```text
+ComfyUI
+FLUX
+IP-Adapter
+LoRA
+```
+
+都可以插进来。
+
+LumenX 现在正在做的 model catalog/provider routing 架构，也非常值得我们借。([GitHub][22])
+
+---
+
+# 23. 只有三块我认为我们真的需要自己写
+
+其实没有想象得多。
+
+### A. 我们自己的 `Scene Schema`
+
+这是核心 IP。
+
+例如：
+
+```json
+{
+  "scene_id": "s03",
+
+  "background": {
+    "asset_id": "bank_hall_01"
+  },
+
+  "characters": [
+    {
+      "character_id": "staff_01",
+      "asset_id": "staff_pose_05",
+      "x": 0.62,
+      "y": 0.31,
+      "scale": 0.84
+    }
+  ],
+
+  "bubbles": [
+    {
+      "speaker": "staff_01",
+      "text": "请先不要转账。",
+      "x": 0.1,
+      "y": 0.05
+    }
+  ]
+}
+```
+
+这个必须自己控制。
+
+---
+
+### B. Long-form Layout
+
+因为别的漫画产品主要是：
+
+```text
+comic page
+```
+
+我们是：
+
+```text
+微信公众号长图
+```
+
+所以：
+
+```text
+Scene 1
+ ↓
+Caption
+ ↓
+Scene 2
+ ↓
+Caption
+ ↓
+Scene 3
+ ...
+```
+
+这一层需要自己写。
+
+不过技术上并不难。
+
+---
+
+### C. PPTX Export
+
+PptxGenJS 给我们基础，我们写：
+
+```text
+Scene Graph → PPTX
+```
+
+mapping。
+
+这一块工作量也相对有限。
+
+---
+
+# 24. 如果现在让我给这些项目打一个“对我们有多有用”的分
+
+| 项目                     | 用途                                   |   推荐度 |
+| ---------------------- | ------------------------------------ | ----: |
+| **Alibaba LumenX**     | 整体产品/数据/任务骨架                         | ⭐⭐⭐⭐⭐ |
+| **manga-studio**       | 分层漫画、气泡、局部重生成                        | ⭐⭐⭐⭐⭐ |
+| **AI-Comic-Generator** | JSON Storyboard / Character Workflow |  ⭐⭐⭐⭐ |
+| **AIComicBuilder**     | Version / Pipeline UX                |  ⭐⭐⭐⭐ |
+| **Qwen-Image**         | Reference / consistency / editing    | ⭐⭐⭐⭐⭐ |
+| **Konva**              | 可编辑 Scene Graph                      | ⭐⭐⭐⭐⭐ |
+| **PptxGenJS**          | Editable PPTX                        | ⭐⭐⭐⭐⭐ |
+| **pretext-comic**      | 气泡排版                                 |  ⭐⭐⭐⭐ |
+| **BiRefNet/rembg**     | 透明人物层                                | ⭐⭐⭐⭐⭐ |
+| StoryDiffusion         | Consistency 算法参考                     |   ⭐⭐⭐ |
+| AID                    | 大型平台参考                               |   ⭐⭐⭐ |
+| AI Comic Factory       | 历史参考                                 |    ⭐⭐ |
+
+---
+
+# 25. 所以我现在的结论非常明确
+
+**不要自己从零写一个 AI Comic Pipeline。**
+
+也**不要找一个项目 fork 下来以后把所有东西都塞进去。**
+
+最合理的是：
+
+> **LumenX 做骨架 + manga-studio 做静态分层生产逻辑 + Konva 做编辑器 + PptxGenJS 做交付格式。**
+
+然后：
+
+```text
+AI-Comic-Generator
+AIComicBuilder
+```
+
+拿来抄它们的数据结构和 UX。
+
+这样我们实际上真正需要原创开发的核心，已经缩成：
+
+```text
+1. 我们自己的 Storyboard Schema
+2. Scene Graph Schema
+3. Long Image Layout Engine
+4. Review / Revision logic
+5. PPTX mapping
+```
+
+这五件事。
+
+而且我现在已经可以比较确定地说，**最难的“人物一致性”“分层生成”“气泡”“编辑器”“PPTX”都不用从算法层面重新造轮子。**
+
+下一步如果继续往 coding 推，我建议直接进入更具体的一步：我可以把上面这些 repo **进一步拆到“具体文件/类/API”级别**，比如明确告诉你：
+
+> LumenX 哪几个目录值得直接拿；manga-studio 的哪几个 `.py` 可以复用；Konva 应该怎么定义我们的 `SceneNode`；PptxGenJS 怎么从同一个 JSON 输出 PPTX。
+
+做到那一步以后，我们基本就能形成一份真正可以交给 Codex/Claude Code 开工的 **Architecture Spec + repo scaffold** 了。
+
+[1]: https://github.com/alibaba/lumenx "GitHub - alibaba/lumenx: LumenX Studio，AI 短漫剧一站式生产平台。它能够将小说文本转化为动态视频，打通了从剧本分析、角色定制、分镜绘制到视频合成的完整创作链路。 · GitHub"
+[2]: https://github.com/alibaba/lumenx?utm_source=chatgpt.com "GitHub - alibaba/lumenx: LumenX Studio，AI 短漫剧一站式生产平台。它能够将小说文本转化为动态视频，打通了从剧本分析、角色定制、分镜绘制到视频合成的完整创作链路。 · GitHub"
+[3]: https://github.com/alibaba/lumenx/blob/main/AGENTS.md?utm_source=chatgpt.com "lumenx/AGENTS.md at main · alibaba/lumenx · GitHub"
+[4]: https://github.com/ahmet360/manga-studio?utm_source=chatgpt.com "GitHub - ahmet360/manga-studio: Local-first AI manga production pipeline - FastAPI studio + ComfyUI + local LLMs: script to fully lettered pages · GitHub"
+[5]: https://github.com/Dapeng960208/AI-Comic-Generator "GitHub - Dapeng960208/AI-Comic-Generator: An open-source AI-powered manga creation tool that transforms text stories into fully illustrated comics using Google Gemini models. Features include automatic storyboard generation, character consistency checks, and a visual editor. · GitHub"
+[6]: https://github.com/LingyiChen-AI/AIComicBuilder?utm_source=chatgpt.com "GitHub - LingyiChen-AI/AIComicBuilder: AI-powered animated comic generator — transform scripts into fully animated videos with AI-driven character design, storyboarding, and video synthesis. · GitHub"
+[7]: https://github.com/LingyiChen-AI/AIComicBuilder/blob/main/README.md?utm_source=chatgpt.com "AIComicBuilder/README.md at main · LingyiChen-AI/AIComicBuilder · GitHub"
+[8]: https://github.com/gzxx-2025/aid-server?utm_source=chatgpt.com "GitHub - gzxx-2025/aid-server: AID 是一套全开源、可私有化部署、可直接运营的一站式 AI 漫剧、AI 漫画、AI 动态漫、AI 短剧与 AI 视频创作平台。支持 AI 剧本创作、角色/道具/场景管理、AI 智能分镜、AI 文生图、AI 图生视频、AI 配音及项目管理，并提供多模型多厂商接入、任务调度、用户权限、积分计费、充值支付和运营后台。 · GitHub"
+[9]: https://github.com/jbilcke-hf/ai-comic-factory?utm_source=chatgpt.com "GitHub - jbilcke-hf/ai-comic-factory: Generate comic panels using a LLM + SDXL. Powered by Hugging Face 🤗 · GitHub"
+[10]: https://github.com/HVision-NKU/StoryDiffusion/blob/main/README.md "StoryDiffusion/README.md at main · HVision-NKU/StoryDiffusion · GitHub"
+[11]: https://github.com/QwenLM/Qwen-Image/blob/main/Qwen-Image-Edit.md "Qwen-Image/Qwen-Image-Edit.md at main · QwenLM/Qwen-Image · GitHub"
+[12]: https://github.com/QwenLM/Qwen-Image/blob/main/LICENSE?utm_source=chatgpt.com "Qwen-Image/LICENSE at main · QwenLM/Qwen-Image · GitHub"
+[13]: https://github.com/tencent-ailab/IP-Adapter?utm_source=chatgpt.com "GitHub - tencent-ailab/IP-Adapter: The image prompt adapter is designed to enable a pretrained text-to-image diffusion model to generate images with image prompt. · GitHub"
+[14]: https://github.com/TencentARC/PhotoMaker?utm_source=chatgpt.com "GitHub - TencentARC/PhotoMaker: PhotoMaker [CVPR 2024] · GitHub"
+[15]: https://github.com/instantx-research/instantid?utm_source=chatgpt.com "GitHub - instantX-research/InstantID: InstantID: Zero-shot Identity-Preserving Generation in Seconds 🔥 · GitHub"
+[16]: https://github.com/ZhengPeng7/BiRefNet?utm_source=chatgpt.com "GitHub - ZhengPeng7/BiRefNet: [CAAI AIR'24] Bilateral Reference for High-Resolution Dichotomous Image Segmentation · GitHub"
+[17]: https://github.com/danielgatis/rembg?utm_source=chatgpt.com "GitHub - danielgatis/rembg: Rembg is a tool to remove images background · GitHub"
+[18]: https://github.com/ShipItAndPray/pretext-comic?utm_source=chatgpt.com "GitHub - ShipItAndPray/pretext-comic: Comic speech bubble tool with shape-aware text fitting. 6 built-in shapes, PNG export. · GitHub"
+[19]: https://github.com/konvajs/konva?utm_source=chatgpt.com "GitHub - konvajs/konva: Konva.js is an HTML5 Canvas JavaScript framework that extends the 2d context by enabling canvas interactivity for desktop and mobile applications. · GitHub"
+[20]: https://github.com/gitbrent/pptxgenjs?utm_source=chatgpt.com "GitHub - gitbrent/PptxGenJS: Build PowerPoint presentations with JavaScript. Works with Node, React, web browsers, and more. · GitHub"
+[21]: https://github.com/alfonsograziano/pptx-gen?utm_source=chatgpt.com "GitHub - alfonsograziano/pptx-gen · GitHub"
+[22]: https://github.com/alibaba/lumenx/blob/main/docs/2-model-catalog-design/model-onboarding-implementation.md?utm_source=chatgpt.com "lumenx/docs/2-model-catalog-design/model-onboarding-implementation.md at main · alibaba/lumenx · GitHub"

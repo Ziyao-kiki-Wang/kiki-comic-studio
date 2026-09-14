@@ -1,0 +1,1236 @@
+完全可以，而且你这个需求其实已经很接近一个标准的 **AI-assisted visual content production pipeline（AI 辅助视觉内容生产流水线）** 了。你现在口述里混在一起的，其实有四类不同问题：**内容策划、视觉资产生成、版式合成、人工审核与回改**。
+
+如果后面要真正 Coding，我建议不要把它理解成“连续调用几个 AI”，而是把它设计成：
+
+> **一个有结构化中间产物、可暂停、可人工介入、可局部重跑、最终输出分层可编辑文件的工作流系统。**
+
+这个定义特别重要。因为你最终不是“一键生成一张图”，而是一个小型的 **AI 内容生产工作台**。
+
+------
+
+# 一、先把整个需求翻译成工程语言
+
+我会把你的系统暂时命名为：
+
+**AI Illustrated Long-Form Content Pipeline**
+
+或者中文：
+
+**AI 漫画长图生产流水线**
+
+整个流程可以抽象成：
+
+```text
+Topic
+  ↓
+Script / Storyboard Generation
+  ↓
+Character Design & Character Bible
+  ↓
+Scene Specification
+  ↓
+Visual Asset Generation
+  ↓
+Layered Scene Composition
+  ↓
+Long-form Layout Composition
+  ↓
+Human Review & Editing
+  ↓
+Export
+```
+
+但真正写代码时，我建议进一步变成：
+
+```text
+Project
+ ├── Content Layer
+ │    ├── Topic
+ │    ├── Story
+ │    ├── Scenes
+ │    ├── Dialogues
+ │    └── Captions
+ │
+ ├── Visual Identity Layer
+ │    ├── Style Guide
+ │    ├── Character Bible
+ │    ├── Character References
+ │    └── Brand Assets
+ │
+ ├── Asset Layer
+ │    ├── Backgrounds
+ │    ├── Characters
+ │    ├── Props
+ │    └── Illustrations
+ │
+ ├── Layout Layer
+ │    ├── Scene Layouts
+ │    ├── Speech Bubbles
+ │    ├── Text
+ │    ├── Banners
+ │    └── Long Image Layout
+ │
+ └── Review Layer
+      ├── Comments
+      ├── Revisions
+      ├── Versions
+      └── Approval State
+```
+
+这个架构比“Prompt → 图片 → 拼图”强很多。
+
+------
+
+# 二、第一步：主题 → Storyboard / Script
+
+你刚才说的第一步，在工程里不应该叫“生成文字稿”，最好叫：
+
+## `Storyboard Generation`
+
+或者：
+
+## `Narrative Planning`
+
+输入是：
+
+```text
+Topic Specification
+```
+
+例如：
+
+```json
+{
+  "topic": "银行防诈骗宣传",
+  "target_audience": "中老年客户",
+  "scene_count": 6,
+  "dialogues_per_scene": "2-3",
+  "caption_length": "short",
+  "tone": "friendly",
+  "content_goal": "解释常见电信诈骗套路"
+}
+```
+
+AI 不应该返回一大段自然语言。
+
+而应该强制返回一个结构化的：
+
+## `Storyboard JSON`
+
+比如：
+
+```json
+{
+  "title": "警惕电信诈骗",
+  "characters": [
+    {
+      "character_id": "bank_staff_01",
+      "role": "银行工作人员",
+      "gender": "female",
+      "age": 28
+    },
+    {
+      "character_id": "customer_01",
+      "role": "银行客户",
+      "gender": "male",
+      "age": 60
+    }
+  ],
+  "scenes": [
+    {
+      "scene_id": "scene_01",
+      "location": "银行大厅",
+      "background_description": "明亮、整洁的银行营业厅",
+      "characters": [
+        "bank_staff_01",
+        "customer_01"
+      ],
+      "story": "客户收到陌生电话，对方声称银行卡存在风险。",
+      "dialogues": [
+        {
+          "speaker": "customer_01",
+          "text": "他说我的银行卡被冻结了！"
+        },
+        {
+          "speaker": "bank_staff_01",
+          "text": "先别转账，我们帮您核实。"
+        }
+      ],
+      "caption": "遇到陌生来电要求转账时，应先核实身份。"
+    }
+  ]
+}
+```
+
+这一步有个非常重要的工程原则：
+
+> **LLM 输出的数据应该成为后续所有 Agent 的 Single Source of Truth。**
+
+后面不要再从自然语言里面重新理解人物是谁、场景是什么。
+
+------
+
+# 三、这里其实需要一个 Storyboard Agent
+
+未来 Agent 可以叫：
+
+```text
+Storyboard Agent
+```
+
+职责不是画图，而是负责：
+
+```text
+Topic
+↓
+Story structure
+↓
+Scene decomposition
+↓
+Dialogue generation
+↓
+Caption generation
+↓
+Character requirements
+```
+
+它最终产生：
+
+```text
+storyboard.json
+```
+
+------
+
+# 四、第二步：人物形象定义
+
+你描述的第二步，在视觉生成行业里其实有一个非常标准的概念：
+
+# Character Bible
+
+中文可以叫：
+
+**人物设定集 / 人物视觉规范**
+
+它比“人物图片”重要得多。
+
+例如一个银行工作人员，不应该只有：
+
+> 一个穿制服的银行员工。
+
+而应该有：
+
+```json
+{
+  "character_id": "bank_staff_01",
+
+  "identity": {
+    "role": "bank employee",
+    "gender": "female",
+    "age": 28
+  },
+
+  "appearance": {
+    "hair": "shoulder-length black hair",
+    "face_shape": "oval",
+    "glasses": false,
+    "body_type": "slim"
+  },
+
+  "clothing": {
+    "top": "white shirt",
+    "outerwear": "dark blue bank uniform",
+    "bottom": "dark blue trousers",
+    "accessories": [
+      "name badge"
+    ]
+  },
+
+  "visual_style": {
+    "style": "clean Chinese commercial comic",
+    "line_style": "soft",
+    "shading": "flat"
+  }
+}
+```
+
+然后还有一个非常重要的东西：
+
+```text
+Character Reference Images
+```
+
+例如：
+
+```text
+character_bank_staff_01_front.png
+character_bank_staff_01_side.png
+character_bank_staff_01_smile.png
+character_bank_staff_01_fullbody.png
+```
+
+这些会作为后面所有图片生成的 Reference。
+
+------
+
+# 五、真人照片 → 漫画角色属于另外一个模块
+
+你提到：
+
+> 可能上传真人照片，然后变成漫画人物。
+
+工程上可以定义：
+
+```text
+Character Reference Adapter
+```
+
+输入：
+
+```text
+Real Person Image
+```
+
+输出：
+
+```text
+Stylized Character Reference
+```
+
+流程：
+
+```text
+Real photo
+↓
+Identity / appearance extraction
+↓
+Style transformation
+↓
+Character reference sheet
+↓
+Character Bible
+```
+
+它和完全根据文本生成角色，其实是两个不同入口：
+
+```text
+Text → Character Design
+
+Photo → Character Adaptation
+```
+
+最后统一生成：
+
+```text
+Character Asset
+```
+
+------
+
+# 六、你最关键的需求之一：Character Consistency
+
+你说：
+
+> 人物不能每一张图片长得都不一样。
+
+工程上这个问题叫：
+
+## Character Consistency
+
+或者：
+
+## Cross-scene Character Consistency
+
+这会成为后面 GitHub 调研的一个重点。
+
+我们之后要找的技术包括：
+
+```text
+Reference Image Conditioning
+Identity Preservation
+Character Consistency
+Subject Consistency
+IP-Adapter
+InstantID
+PhotoMaker
+LoRA
+DreamBooth
+ControlNet
+Character Sheet
+Multi-view Character Generation
+```
+
+不同模型路线的实现差别会非常大。
+
+------
+
+# 七、第三步不能简单叫“生成图片”
+
+这里建议拆成两个阶段：
+
+```text
+Scene Specification
+↓
+Scene Rendering
+```
+
+也就是先由 AI 把：
+
+> “第一张图应该画什么”
+
+变成机器可以理解的：
+
+## Scene Specification
+
+例如：
+
+```json
+{
+  "scene_id": "scene_01",
+
+  "canvas": {
+    "width": 1200,
+    "height": 900
+  },
+
+  "background": {
+    "type": "bank_lobby",
+    "complexity": "medium"
+  },
+
+  "characters": [
+    {
+      "character_id": "bank_staff_01",
+      "position": "right",
+      "pose": "standing",
+      "emotion": "calm"
+    },
+    {
+      "character_id": "customer_01",
+      "position": "left",
+      "pose": "holding_phone",
+      "emotion": "worried"
+    }
+  ],
+
+  "style": {
+    "illustration_style": "commercial_comic",
+    "background_detail": "medium"
+  }
+}
+```
+
+然后再由：
+
+```text
+Rendering Agent
+```
+
+去生成图片。
+
+------
+
+# 八、但是这里我会建议你改一个非常重要的流程
+
+你现在想的是：
+
+> AI 直接生成一张完整漫画 → 后面加字。
+
+可以。
+
+但是既然你明确说：
+
+> 后面的审核人员可能还要改漫画。
+
+那最好不要只生成一个：
+
+```text
+scene01.png
+```
+
+而是尽量生成：
+
+```text
+scene01/
+├── background.png
+├── character_01.png
+├── character_02.png
+├── foreground.png
+└── scene.json
+```
+
+也就是说：
+
+# Layered Scene Generation
+
+例如：
+
+```text
+背景
++
+人物 A
++
+人物 B
++
+道具
++
+气泡
++
+文字
+```
+
+全部分层。
+
+------
+
+# 九、这样你后面的编辑能力会突然强很多
+
+例如：
+
+审核人员说：
+
+> 银行工作人员太大了。
+
+你不需要重新生成整张图。
+
+只需要：
+
+```text
+resize(character_bank_staff_01)
+```
+
+他说：
+
+> 把客户挪到左边一点。
+
+变成：
+
+```text
+character.position.x -= 50
+```
+
+他说：
+
+> 背景换成 ATM 区域。
+
+只需要：
+
+```text
+replace background
+```
+
+他说：
+
+> 这个工作人员表情不对。
+
+只重生成：
+
+```text
+character_bank_staff_01
+```
+
+而不是整幅图。
+
+这就是：
+
+# Component-level Regeneration
+
+我认为这个能力对你的 Pipeline 非常重要。
+
+------
+
+# 十、纯人物 / 带背景，本质是 Render Mode
+
+你刚才提到：
+
+> 有时候需要只有人物、透明背景；
+> 有时候要人物和背景一起。
+
+工程里可以做成：
+
+```json
+{
+  "render_mode": "character_only"
+}
+```
+
+或者：
+
+```json
+{
+  "render_mode": "full_scene"
+}
+```
+
+甚至：
+
+```text
+character_only
+background_only
+full_scene
+layered_scene
+```
+
+其中我最推荐默认：
+
+```text
+layered_scene
+```
+
+------
+
+# 十一、第四步实际上不是“拼长图”
+
+工程上应该叫：
+
+# Layout Composition
+
+也就是：
+
+```text
+Layout Engine
+```
+
+因为以后不仅是：
+
+> 把六张图从上往下拼。
+
+还有：
+
+```text
+图片位置
+图片间距
+标题
+留白
+对话框
+说明文字
+Banner
+Logo
+页脚
+装饰
+```
+
+所以应该有一个：
+
+```text
+layout.json
+```
+
+例如：
+
+```json
+{
+  "canvas": {
+    "width": 1080,
+    "height": "auto"
+  },
+
+  "scene_gap": 60,
+
+  "scenes": [
+    {
+      "scene_id": "scene_01",
+      "height": 900,
+      "caption_position": "bottom"
+    },
+    {
+      "scene_id": "scene_02",
+      "height": 900,
+      "caption_position": "bottom"
+    }
+  ]
+}
+```
+
+系统自动计算：
+
+```text
+total_height
+```
+
+最终：
+
+```text
+1080 × 7200
+```
+
+之类。
+
+------
+
+# 十二、字体不要让图片模型生成
+
+这个技术决策我现在就非常建议定下来：
+
+> **所有文字都尽量不要交给图片生成模型。**
+
+也就是说 AI 只负责：
+
+```text
+Illustration
+```
+
+而：
+
+```text
+Dialogue
+Caption
+Title
+Banner
+Label
+Logo
+```
+
+全部由 Layout Engine 后期渲染。
+
+否则会出现：
+
+```text
+错字
+字体失真
+字号不统一
+无法编辑
+无法保证字体授权
+```
+
+而你提到的：
+
+> 必须用官方授权字体
+
+就可以在这里解决。
+
+------
+
+# 十三、需要做一个 Font Asset Manager
+
+例如：
+
+```text
+fonts/
+├── SourceHanSansSC-Regular.otf
+├── SourceHanSansSC-Bold.otf
+└── xxx.ttf
+```
+
+项目里面记录：
+
+```json
+{
+  "font_family": "Source Han Sans SC",
+  "font_file": "fonts/SourceHanSansSC-Regular.otf",
+  "license": "OFL"
+}
+```
+
+然后所有文本统一调用字体资产。
+
+这个模块可以叫：
+
+# Font Asset Manager
+
+甚至以后可以维护：
+
+```text
+字体名称
+字体文件
+版权来源
+商业使用许可
+```
+
+------
+
+# 十四、气泡也不应该画进 AI 图片
+
+你现在的流程应该改成：
+
+```text
+AI illustration
+↓
+Speech Bubble Engine
+↓
+Text Layout Engine
+```
+
+一个气泡可以是：
+
+```json
+{
+  "type": "speech_bubble",
+  "speaker": "bank_staff_01",
+
+  "position": {
+    "x": 650,
+    "y": 120
+  },
+
+  "size": {
+    "width": 320,
+    "height": 160
+  },
+
+  "text": "先别转账，我们帮您核实。",
+
+  "font_size": 36
+}
+```
+
+这样审核的人想：
+
+> 字小一点。
+
+就是：
+
+```text
+font_size: 36 → 32
+```
+
+而不需要重新 P 图。
+
+------
+
+# 十五、你最终真正需要的不是一个 PNG
+
+这里可能是你这个项目最重要的架构决策。
+
+最终应该存在两个产物：
+
+## Editable Master
+
+和
+
+## Final Render
+
+例如：
+
+```text
+Editable Master
+├── PPTX
+├── SVG
+├── Figma
+└── PSD
+```
+
+然后：
+
+```text
+Final Render
+├── PNG
+├── JPG
+└── PDF
+```
+
+------
+
+# 十六、如果按照你现在的工作习惯，我最推荐 PPTX 作为第一版 Editable Master
+
+也就是：
+
+```text
+Project JSON
++
+Assets
+↓
+PPTX Renderer
+↓
+editable.pptx
+```
+
+PPTX 里面：
+
+```text
+背景图片 = 独立 layer
+人物 = 独立 image object
+气泡 = shape
+文字 = editable textbox
+banner = shape
+logo = image
+caption = textbox
+```
+
+工作人员打开 PowerPoint：
+
+直接拖人物。
+
+直接改字。
+
+直接放大气泡。
+
+直接换字体。
+
+这个非常符合你现在的使用习惯。
+
+而最终系统再自动：
+
+```text
+PPTX
+↓
+PNG
+↓
+Long Image
+```
+
+------
+
+# 十七、PSD 可以做，但我不会建议一开始把它作为核心格式
+
+因为 Photoshop 的：
+
+```text
+PSD Layer
+Smart Object
+Text Layer
+Shape Layer
+```
+
+自动生成和跨平台编辑，比 PPTX 麻烦不少。
+
+所以 MVP 可以：
+
+```text
+Editable Master = PPTX
+```
+
+之后再考虑：
+
+```text
+PSD Exporter
+Figma Exporter
+SVG Exporter
+```
+
+------
+
+# 十八、因此整个系统真正的数据结构应该是“Scene Graph”
+
+这里是一个比较偏工程的词：
+
+# Scene Graph
+
+你的一张漫画不是一个 bitmap，而应该看成：
+
+```text
+Scene
+├── Background
+├── Character
+│   ├── Character A
+│   └── Character B
+├── Props
+├── SpeechBubble
+│   ├── Bubble 1
+│   └── Bubble 2
+├── Caption
+└── Decorations
+```
+
+每一个东西都是一个：
+
+```text
+Object
+```
+
+都有：
+
+```text
+x
+y
+width
+height
+rotation
+z-index
+asset
+style
+```
+
+例如：
+
+```json
+{
+  "type": "character",
+  "asset_id": "bank_staff_01_pose_03",
+
+  "x": 620,
+  "y": 300,
+
+  "width": 360,
+  "height": 600,
+
+  "z_index": 20
+}
+```
+
+这个思想其实和：
+
+```text
+PPT
+Figma
+Photoshop
+Canva
+Web DOM
+```
+
+底层非常类似。
+
+------
+
+# 十九、Human-in-the-loop 是你 Pipeline 的核心，不是附加功能
+
+你描述里审核人员会：
+
+```text
+改文字
+改气泡
+改字号
+改布局
+甚至改漫画
+```
+
+所以这是一个典型的：
+
+# Human-in-the-loop Workflow
+
+流程不是：
+
+```text
+AI → Final
+```
+
+而是：
+
+```text
+AI
+ ↓
+Draft
+ ↓
+Human Review
+ ↓
+Revision
+ ↓
+Human Approval
+ ↓
+Final
+```
+
+最好有状态机：
+
+```text
+DRAFT
+↓
+GENERATED
+↓
+REVIEW_REQUIRED
+↓
+REVISION_REQUIRED
+↓
+APPROVED
+↓
+EXPORTED
+```
+
+------
+
+# 二十、而且必须支持“局部重跑”
+
+例如审核人员说：
+
+> 第 4 张重新做，其他都别动。
+
+Pipeline 绝不能：
+
+```text
+重新运行整个项目
+```
+
+应该支持：
+
+# Partial Re-run
+
+例如：
+
+```text
+rerun(scene_04)
+```
+
+甚至：
+
+```text
+rerun(scene_04.character_02)
+```
+
+或者：
+
+```text
+rerun(scene_04.background)
+```
+
+这就是比较典型的：
+
+```text
+Dependency Graph / DAG
+```
+
+------
+
+# 二十一、所以整个东西其实可以设计成 DAG
+
+完整的 DAG 大概是：
+
+```text
+                    ┌→ Character Agent ─────────┐
+                    │                           │
+Topic → Story Agent → Storyboard ─→ Scene Agent │
+                                │               ↓
+                                └────────→ Render Agent
+                                                ↓
+                                         Visual Assets
+                                                ↓
+                                        Layout Engine
+                                                ↓
+                                        Editable PPTX
+                                                ↓
+                                         Human Review
+                                           ↙        ↘
+                                      Revision     Approve
+                                         ↓            ↓
+                                      Partial       Final
+                                      Re-run        Export
+```
+
+------
+
+# 二十二、如果按照 Agent 思路拆，我会拆成 6 个 Agent
+
+| Agent                    | 工程职责                                          |
+| ------------------------ | ------------------------------------------------- |
+| **Story Agent**          | 主题 → 故事结构、对话、caption                    |
+| **Character Agent**      | 人物定义、Character Bible、参考图                 |
+| **Scene Director Agent** | 把每个 Scene 翻译成可生成图片的视觉 specification |
+| **Rendering Agent**      | 调用图像模型产生人物、背景、插图                  |
+| **Layout Agent**         | 自动布局人物、气泡、文字、标题、banner            |
+| **Review Agent**         | 根据审核意见识别需要修改的 component              |
+
+不过有个重要区别：
+
+> 不是什么东西都应该做成 Agent。
+
+比如：
+
+```text
+尺寸计算
+字体渲染
+PPTX 生成
+拼图
+图片 resize
+文字自动换行
+气泡尺寸
+```
+
+这些应该是：
+
+```text
+deterministic code / tools
+```
+
+而不是 LLM Agent。
+
+------
+
+# 二十三、所以合理架构应该是 Agent + Tool，而不是全 Agent
+
+比如：
+
+```text
+Layout Agent
+    ↓
+decides layout
+    ↓
+PPTX Tool
+    ↓
+generate pptx
+```
+
+而不是让 AI：
+
+> “你自己想办法生成一个 PPT。”
+
+这一点会直接决定系统稳定性。
+
+------
+
+# 二十四、我把你的整个需求压缩成工程版的话，是这样的
+
+你现在真正想构建的是：
+
+> 一个 **Human-in-the-loop AI Visual Storytelling Pipeline**，输入一个主题，通过 LLM 自动完成故事规划、Storyboard、人物设计和 Scene Specification，通过图像生成模型生成具有跨场景人物一致性的视觉资产，再通过 deterministic layout engine 将人物、背景、气泡、文字和品牌元素以分层对象方式组合，最终输出可继续编辑的 PPTX/PSD 等 Master 文件，同时支持审核人员对任意 Scene 或 Component 进行修改、反馈和局部重新生成。
+
+这个描述拿给程序员，对方基本就知道要干什么了。
+
+------
+
+# 二十五、真正开始 Coding 前，我建议把项目规范固定成这一套文件结构
+
+```text
+project/
+│
+├── project.json
+│
+├── storyboard/
+│   └── storyboard.json
+│
+├── characters/
+│   ├── character_bank_staff_01.json
+│   ├── character_bank_staff_01_reference.png
+│   └── character_customer_01_reference.png
+│
+├── scenes/
+│   ├── scene_01.json
+│   ├── scene_02.json
+│   └── ...
+│
+├── assets/
+│   ├── backgrounds/
+│   ├── characters/
+│   ├── props/
+│   └── logos/
+│
+├── fonts/
+│
+├── layouts/
+│   └── layout.json
+│
+├── review/
+│   └── revisions.json
+│
+└── output/
+    ├── editable.pptx
+    ├── final.png
+    └── preview.jpg
+```
+
+这样后面你甚至换掉 GPT、换掉图片模型、换掉 PPT Renderer，都不会影响整个系统。
+
+------
+
+## 我认为这套 Pipeline 目前最值得单独拆出来调研的 7 个技术问题
+
+1. **Storyboard / comic script generation**
+2. **Character consistency / identity preservation**
+3. **Reference image → consistent cartoon character**
+4. **Multi-character scene composition**
+5. **Background / character 分层生成**
+6. **Automatic comic layout / speech bubble / text layout**
+7. **JSON / assets → editable PPTX / PSD / Figma**
+
+而且第 2、3、4、6、7 这几个领域，其实 GitHub 上已经很可能存在不少可以直接复用的东西。
+
+下一步我们做 GitHub 调研的时候，我建议**不要搜索一个“有没有现成项目把整套都实现了”就结束**。更有效的方式是按上面这 7 个 subsystem 分别搜开源项目，然后再判断：
+
+```text
+哪些可以直接用
+哪些可以 fork
+哪些只能借鉴
+哪些必须自己写
+```
+
+最后再给你拼成一张真正的 **技术选型图 + 系统架构图 + MVP 开发路线**。
+
+你这套东西做到最后，其实已经不只是一个“长图生成器”了，更接近一个 **AI-native Canva / 漫画内容生产 CMS 的垂直版本**。而且从工程角度看，最关键的架构决策已经很明确：**不要把“图片”当最终核心数据结构，要把 `Storyboard + Character Bible + Scene Graph + Assets + Layout` 当核心数据结构，PNG 只是最后的 render。**
