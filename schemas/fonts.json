@@ -1,0 +1,259 @@
+{
+  "fonts": [
+    {
+      "id": "source_han_sans_regular",
+      "name": "思源黑体 常规",
+      "family": "sans",
+      "description": "思源黑体 · Regular",
+      "extensions": [
+        ".ttf",
+        ".otf",
+        ".ttc"
+      ],
+      "file": "source-han-sans/SourceHanSansSC-Regular.otf",
+      "weight": 400,
+      "pptx_face": "Source Han Sans SC",
+      "pptx_bold": false
+    },
+    {
+      "id": "source_han_sans_bold",
+      "name": "思源黑体 粗体",
+      "family": "sans",
+      "description": "思源黑体 · Bold",
+      "extensions": [
+        ".ttf",
+        ".otf",
+        ".ttc"
+      ],
+      "file": "source-han-sans/SourceHanSansSC-Bold.otf",
+      "weight": 700,
+      "pptx_face": "Source Han Sans SC",
+      "pptx_bold": true
+    },
+    {
+      "id": "source_han_sans_light",
+      "name": "思源黑体 细体",
+      "family": "sans",
+      "description": "思源黑体 · Light",
+      "extensions": [
+        ".ttf",
+        ".otf",
+        ".ttc"
+      ],
+      "file": "source-han-sans/SourceHanSansSC-Light.otf",
+      "weight": 300,
+      "pptx_face": "Source Han Sans SC Light",
+      "pptx_bold": false
+    },
+    {
+      "id": "source_han_sans_extralight",
+      "name": "思源黑体 极细",
+      "family": "sans",
+      "description": "思源黑体 · ExtraLight",
+      "extensions": [
+        ".ttf",
+        ".otf",
+        ".ttc"
+      ],
+      "file": "source-han-sans/SourceHanSansSC-ExtraLight.otf",
+      "weight": 250,
+      "pptx_face": "Source Han Sans SC ExtraLight",
+      "pptx_bold": false
+    },
+    {
+      "id": "source_han_sans_normal",
+      "name": "思源黑体 标准",
+      "family": "sans",
+      "description": "思源黑体 · Normal",
+      "extensions": [
+        ".ttf",
+        ".otf",
+        ".ttc"
+      ],
+      "file": "source-han-sans/SourceHanSansSC-Normal.otf",
+      "weight": 350,
+      "pptx_face": "Source Han Sans SC Normal",
+      "pptx_bold": false
+    },
+    {
+      "id": "source_han_sans_medium",
+      "name": "思源黑体 中等",
+      "family": "sans",
+      "description": "思源黑体 · Medium",
+      "extensions": [
+        ".ttf",
+        ".otf",
+        ".ttc"
+      ],
+      "file": "source-han-sans/SourceHanSansSC-Medium.otf",
+      "weight": 500,
+      "pptx_face": "Source Han Sans SC Medium",
+      "pptx_bold": false
+    },
+    {
+      "id": "source_han_sans_heavy",
+      "name": "思源黑体 特粗",
+      "family": "sans",
+      "description": "思源黑体 · Heavy",
+      "extensions": [
+        ".ttf",
+        ".otf",
+        ".ttc"
+      ],
+      "file": "source-han-sans/SourceHanSansSC-Heavy.otf",
+      "weight": 900,
+      "pptx_face": "Source Han Sans SC Heavy",
+      "pptx_bold": false
+    },
+    {
+      "id": "source_han_serif_regular",
+      "name": "思源宋体 常规",
+      "family": "serif",
+      "description": "思源宋体 · Regular",
+      "extensions": [
+        ".ttf",
+        ".otf",
+        ".ttc"
+      ],
+      "file": "source-han-serif/SourceHanSerifSC-Regular.otf",
+      "weight": 400,
+      "pptx_face": "Source Han Serif SC",
+      "pptx_bold": false
+    },
+    {
+      "id": "source_han_serif_semibold",
+      "name": "思源宋体 半粗",
+      "family": "serif",
+      "description": "思源宋体 · SemiBold",
+      "extensions": [
+        ".ttf",
+        ".otf",
+        ".ttc"
+      ],
+      "file": "source-han-serif/SourceHanSerifSC-SemiBold.otf",
+      "weight": 600,
+      "pptx_face": "Source Han Serif SC SemiBold",
+      "pptx_bold": false
+    },
+    {
+      "id": "source_han_serif_light",
+      "name": "思源宋体 细体",
+      "family": "serif",
+      "description": "思源宋体 · Light",
+      "extensions": [
+        ".ttf",
+        ".otf",
+        ".ttc"
+      ],
+      "file": "source-han-serif/SourceHanSerifSC-Light.otf",
+      "weight": 300,
+      "pptx_face": "Source Han Serif SC Light",
+      "pptx_bold": false
+    },
+    {
+      "id": "source_han_serif_extralight",
+      "name": "思源宋体 极细",
+      "family": "serif",
+      "description": "思源宋体 · ExtraLight",
+      "extensions": [
+        ".ttf",
+        ".otf",
+        ".ttc"
+      ],
+      "file": "source-han-serif/SourceHanSerifSC-ExtraLight.otf",
+      "weight": 250,
+      "pptx_face": "Source Han Serif SC ExtraLight",
+      "pptx_bold": false
+    },
+    {
+      "id": "source_han_serif_medium",
+      "name": "思源宋体 中等",
+      "family": "serif",
+      "description": "思源宋体 · Medium",
+      "extensions": [
+        ".ttf",
+        ".otf",
+        ".ttc"
+      ],
+      "file": "source-han-serif/SourceHanSerifSC-Medium.otf",
+      "weight": 500,
+      "pptx_face": "Source Han Serif SC Medium",
+      "pptx_bold": false
+    },
+    {
+      "id": "source_han_serif_bold",
+      "name": "思源宋体 粗体",
+      "family": "serif",
+      "description": "思源宋体 · Bold",
+      "extensions": [
+        ".ttf",
+        ".otf",
+        ".ttc"
+      ],
+      "file": "source-han-serif/SourceHanSerifSC-Bold.otf",
+      "weight": 700,
+      "pptx_face": "Source Han Serif SC",
+      "pptx_bold": true
+    },
+    {
+      "id": "source_han_serif_heavy",
+      "name": "思源宋体 特粗",
+      "family": "serif",
+      "description": "思源宋体 · Heavy",
+      "extensions": [
+        ".ttf",
+        ".otf",
+        ".ttc"
+      ],
+      "file": "source-han-serif/SourceHanSerifSC-Heavy.otf",
+      "weight": 900,
+      "pptx_face": "Source Han Serif SC Heavy",
+      "pptx_bold": false
+    },
+    {
+      "id": "microsoft_yahei_regular",
+      "name": "微软雅黑 常规",
+      "family": "sans",
+      "description": "微软雅黑 · Regular",
+      "extensions": [
+        ".ttf",
+        ".otf",
+        ".ttc"
+      ],
+      "file": "microsoft-yahei/msyh.ttf",
+      "weight": 400,
+      "pptx_face": "Microsoft YaHei",
+      "pptx_bold": false
+    },
+    {
+      "id": "microsoft_yahei_bold",
+      "name": "微软雅黑 粗体",
+      "family": "sans",
+      "description": "微软雅黑 · Bold",
+      "extensions": [
+        ".ttf",
+        ".otf",
+        ".ttc"
+      ],
+      "file": "microsoft-yahei/msyhbd.ttf",
+      "weight": 700,
+      "pptx_face": "Microsoft YaHei",
+      "pptx_bold": true
+    },
+    {
+      "id": "microsoft_yahei_light",
+      "name": "微软雅黑 细体",
+      "family": "sans",
+      "description": "微软雅黑 · Light",
+      "extensions": [
+        ".ttf",
+        ".otf",
+        ".ttc"
+      ],
+      "file": "microsoft-yahei/msyhl.ttf",
+      "weight": 290,
+      "pptx_face": "Microsoft YaHei Light",
+      "pptx_bold": false
+    }
+  ]
+}

@@ -1,0 +1,980 @@
+{
+  "groups": [
+    {
+      "id": "01",
+      "label": "花草"
+    },
+    {
+      "id": "02",
+      "label": "星空天气"
+    },
+    {
+      "id": "03",
+      "label": "爱心"
+    },
+    {
+      "id": "04",
+      "label": "蝴蝶结"
+    },
+    {
+      "id": "05",
+      "label": "水果"
+    },
+    {
+      "id": "06",
+      "label": "箭头"
+    },
+    {
+      "id": "07",
+      "label": "美食"
+    },
+    {
+      "id": "08",
+      "label": "手账"
+    },
+    {
+      "id": "09",
+      "label": "花边"
+    },
+    {
+      "id": "10",
+      "label": "日常"
+    },
+    {
+      "id": "11",
+      "label": "相框"
+    }
+  ],
+  "stickers": [
+    {
+      "id": "01-01",
+      "group": "01",
+      "width": 294,
+      "height": 293
+    },
+    {
+      "id": "01-02",
+      "group": "01",
+      "width": 303,
+      "height": 296
+    },
+    {
+      "id": "01-03",
+      "group": "01",
+      "width": 252,
+      "height": 313
+    },
+    {
+      "id": "01-04",
+      "group": "01",
+      "width": 227,
+      "height": 302
+    },
+    {
+      "id": "01-05",
+      "group": "01",
+      "width": 279,
+      "height": 286
+    },
+    {
+      "id": "01-06",
+      "group": "01",
+      "width": 302,
+      "height": 294
+    },
+    {
+      "id": "01-07",
+      "group": "01",
+      "width": 294,
+      "height": 281
+    },
+    {
+      "id": "01-08",
+      "group": "01",
+      "width": 261,
+      "height": 281
+    },
+    {
+      "id": "01-09",
+      "group": "01",
+      "width": 231,
+      "height": 317
+    },
+    {
+      "id": "01-10",
+      "group": "01",
+      "width": 267,
+      "height": 237
+    },
+    {
+      "id": "01-11",
+      "group": "01",
+      "width": 270,
+      "height": 304
+    },
+    {
+      "id": "01-12",
+      "group": "01",
+      "width": 245,
+      "height": 258
+    },
+    {
+      "id": "01-13",
+      "group": "01",
+      "width": 239,
+      "height": 272
+    },
+    {
+      "id": "02-01",
+      "group": "02",
+      "width": 294,
+      "height": 320
+    },
+    {
+      "id": "02-02",
+      "group": "02",
+      "width": 280,
+      "height": 304
+    },
+    {
+      "id": "02-03",
+      "group": "02",
+      "width": 260,
+      "height": 363
+    },
+    {
+      "id": "02-04",
+      "group": "02",
+      "width": 330,
+      "height": 331
+    },
+    {
+      "id": "02-05",
+      "group": "02",
+      "width": 296,
+      "height": 303
+    },
+    {
+      "id": "02-06",
+      "group": "02",
+      "width": 344,
+      "height": 265
+    },
+    {
+      "id": "02-07",
+      "group": "02",
+      "width": 376,
+      "height": 267
+    },
+    {
+      "id": "02-08",
+      "group": "02",
+      "width": 220,
+      "height": 297
+    },
+    {
+      "id": "02-09",
+      "group": "02",
+      "width": 196,
+      "height": 256
+    },
+    {
+      "id": "02-10",
+      "group": "02",
+      "width": 294,
+      "height": 289
+    },
+    {
+      "id": "02-11",
+      "group": "02",
+      "width": 333,
+      "height": 254
+    },
+    {
+      "id": "02-12",
+      "group": "02",
+      "width": 330,
+      "height": 327
+    },
+    {
+      "id": "03-01",
+      "group": "03",
+      "width": 317,
+      "height": 271
+    },
+    {
+      "id": "03-02",
+      "group": "03",
+      "width": 297,
+      "height": 260
+    },
+    {
+      "id": "03-03",
+      "group": "03",
+      "width": 315,
+      "height": 289
+    },
+    {
+      "id": "03-04",
+      "group": "03",
+      "width": 281,
+      "height": 290
+    },
+    {
+      "id": "03-05",
+      "group": "03",
+      "width": 373,
+      "height": 247
+    },
+    {
+      "id": "03-06",
+      "group": "03",
+      "width": 314,
+      "height": 293
+    },
+    {
+      "id": "03-07",
+      "group": "03",
+      "width": 301,
+      "height": 269
+    },
+    {
+      "id": "03-08",
+      "group": "03",
+      "width": 270,
+      "height": 258
+    },
+    {
+      "id": "03-09",
+      "group": "03",
+      "width": 306,
+      "height": 228
+    },
+    {
+      "id": "03-10",
+      "group": "03",
+      "width": 285,
+      "height": 300
+    },
+    {
+      "id": "03-11",
+      "group": "03",
+      "width": 270,
+      "height": 285
+    },
+    {
+      "id": "03-12",
+      "group": "03",
+      "width": 317,
+      "height": 262
+    },
+    {
+      "id": "04-01",
+      "group": "04",
+      "width": 377,
+      "height": 319
+    },
+    {
+      "id": "04-02",
+      "group": "04",
+      "width": 312,
+      "height": 207
+    },
+    {
+      "id": "04-03",
+      "group": "04",
+      "width": 389,
+      "height": 298
+    },
+    {
+      "id": "04-04",
+      "group": "04",
+      "width": 431,
+      "height": 258
+    },
+    {
+      "id": "04-05",
+      "group": "04",
+      "width": 365,
+      "height": 302
+    },
+    {
+      "id": "04-06",
+      "group": "04",
+      "width": 442,
+      "height": 214
+    },
+    {
+      "id": "04-07",
+      "group": "04",
+      "width": 270,
+      "height": 333
+    },
+    {
+      "id": "04-08",
+      "group": "04",
+      "width": 361,
+      "height": 271
+    },
+    {
+      "id": "04-09",
+      "group": "04",
+      "width": 344,
+      "height": 315
+    },
+    {
+      "id": "04-10",
+      "group": "04",
+      "width": 456,
+      "height": 220
+    },
+    {
+      "id": "04-11",
+      "group": "04",
+      "width": 282,
+      "height": 325
+    },
+    {
+      "id": "04-12",
+      "group": "04",
+      "width": 467,
+      "height": 233
+    },
+    {
+      "id": "05-01",
+      "group": "05",
+      "width": 305,
+      "height": 325
+    },
+    {
+      "id": "05-02",
+      "group": "05",
+      "width": 285,
+      "height": 341
+    },
+    {
+      "id": "05-03",
+      "group": "05",
+      "width": 305,
+      "height": 305
+    },
+    {
+      "id": "05-04",
+      "group": "05",
+      "width": 308,
+      "height": 329
+    },
+    {
+      "id": "05-05",
+      "group": "05",
+      "width": 303,
+      "height": 318
+    },
+    {
+      "id": "05-06",
+      "group": "05",
+      "width": 273,
+      "height": 349
+    },
+    {
+      "id": "05-07",
+      "group": "05",
+      "width": 293,
+      "height": 315
+    },
+    {
+      "id": "05-08",
+      "group": "05",
+      "width": 310,
+      "height": 303
+    },
+    {
+      "id": "05-09",
+      "group": "05",
+      "width": 308,
+      "height": 325
+    },
+    {
+      "id": "05-10",
+      "group": "05",
+      "width": 262,
+      "height": 348
+    },
+    {
+      "id": "05-11",
+      "group": "05",
+      "width": 342,
+      "height": 316
+    },
+    {
+      "id": "05-12",
+      "group": "05",
+      "width": 255,
+      "height": 376
+    },
+    {
+      "id": "06-01",
+      "group": "06",
+      "width": 343,
+      "height": 295
+    },
+    {
+      "id": "06-02",
+      "group": "06",
+      "width": 279,
+      "height": 296
+    },
+    {
+      "id": "06-03",
+      "group": "06",
+      "width": 379,
+      "height": 285
+    },
+    {
+      "id": "06-04",
+      "group": "06",
+      "width": 219,
+      "height": 316
+    },
+    {
+      "id": "06-05",
+      "group": "06",
+      "width": 309,
+      "height": 278
+    },
+    {
+      "id": "06-06",
+      "group": "06",
+      "width": 360,
+      "height": 195
+    },
+    {
+      "id": "06-07",
+      "group": "06",
+      "width": 259,
+      "height": 253
+    },
+    {
+      "id": "06-08",
+      "group": "06",
+      "width": 354,
+      "height": 228
+    },
+    {
+      "id": "06-09",
+      "group": "06",
+      "width": 391,
+      "height": 179
+    },
+    {
+      "id": "06-10",
+      "group": "06",
+      "width": 317,
+      "height": 178
+    },
+    {
+      "id": "06-11",
+      "group": "06",
+      "width": 313,
+      "height": 270
+    },
+    {
+      "id": "06-12",
+      "group": "06",
+      "width": 235,
+      "height": 253
+    },
+    {
+      "id": "06-13",
+      "group": "06",
+      "width": 265,
+      "height": 271
+    },
+    {
+      "id": "06-14",
+      "group": "06",
+      "width": 273,
+      "height": 276
+    },
+    {
+      "id": "06-15",
+      "group": "06",
+      "width": 292,
+      "height": 252
+    },
+    {
+      "id": "06-16",
+      "group": "06",
+      "width": 290,
+      "height": 278
+    },
+    {
+      "id": "07-01",
+      "group": "07",
+      "width": 297,
+      "height": 309
+    },
+    {
+      "id": "07-02",
+      "group": "07",
+      "width": 299,
+      "height": 286
+    },
+    {
+      "id": "07-03",
+      "group": "07",
+      "width": 232,
+      "height": 357
+    },
+    {
+      "id": "07-04",
+      "group": "07",
+      "width": 252,
+      "height": 321
+    },
+    {
+      "id": "07-05",
+      "group": "07",
+      "width": 248,
+      "height": 355
+    },
+    {
+      "id": "07-06",
+      "group": "07",
+      "width": 290,
+      "height": 299
+    },
+    {
+      "id": "07-07",
+      "group": "07",
+      "width": 311,
+      "height": 292
+    },
+    {
+      "id": "07-08",
+      "group": "07",
+      "width": 280,
+      "height": 308
+    },
+    {
+      "id": "07-09",
+      "group": "07",
+      "width": 313,
+      "height": 311
+    },
+    {
+      "id": "07-10",
+      "group": "07",
+      "width": 258,
+      "height": 308
+    },
+    {
+      "id": "07-11",
+      "group": "07",
+      "width": 269,
+      "height": 316
+    },
+    {
+      "id": "07-12",
+      "group": "07",
+      "width": 237,
+      "height": 371
+    },
+    {
+      "id": "08-01",
+      "group": "08",
+      "width": 351,
+      "height": 278
+    },
+    {
+      "id": "08-02",
+      "group": "08",
+      "width": 286,
+      "height": 308
+    },
+    {
+      "id": "08-03",
+      "group": "08",
+      "width": 265,
+      "height": 307
+    },
+    {
+      "id": "08-04",
+      "group": "08",
+      "width": 334,
+      "height": 259
+    },
+    {
+      "id": "08-05",
+      "group": "08",
+      "width": 311,
+      "height": 334
+    },
+    {
+      "id": "08-06",
+      "group": "08",
+      "width": 150,
+      "height": 140
+    },
+    {
+      "id": "08-07",
+      "group": "08",
+      "width": 150,
+      "height": 141
+    },
+    {
+      "id": "08-08",
+      "group": "08",
+      "width": 315,
+      "height": 279
+    },
+    {
+      "id": "08-09",
+      "group": "08",
+      "width": 306,
+      "height": 316
+    },
+    {
+      "id": "08-10",
+      "group": "08",
+      "width": 145,
+      "height": 141
+    },
+    {
+      "id": "08-11",
+      "group": "08",
+      "width": 153,
+      "height": 142
+    },
+    {
+      "id": "08-12",
+      "group": "08",
+      "width": 289,
+      "height": 268
+    },
+    {
+      "id": "08-13",
+      "group": "08",
+      "width": 301,
+      "height": 231
+    },
+    {
+      "id": "08-14",
+      "group": "08",
+      "width": 288,
+      "height": 248
+    },
+    {
+      "id": "08-15",
+      "group": "08",
+      "width": 140,
+      "height": 266
+    },
+    {
+      "id": "08-16",
+      "group": "08",
+      "width": 139,
+      "height": 265
+    },
+    {
+      "id": "08-17",
+      "group": "08",
+      "width": 299,
+      "height": 147
+    },
+    {
+      "id": "08-18",
+      "group": "08",
+      "width": 295,
+      "height": 125
+    },
+    {
+      "id": "09-01",
+      "group": "09",
+      "width": 263,
+      "height": 254
+    },
+    {
+      "id": "09-02",
+      "group": "09",
+      "width": 260,
+      "height": 241
+    },
+    {
+      "id": "09-03",
+      "group": "09",
+      "width": 285,
+      "height": 198
+    },
+    {
+      "id": "09-04",
+      "group": "09",
+      "width": 248,
+      "height": 254
+    },
+    {
+      "id": "09-05",
+      "group": "09",
+      "width": 327,
+      "height": 187
+    },
+    {
+      "id": "09-06",
+      "group": "09",
+      "width": 343,
+      "height": 135
+    },
+    {
+      "id": "09-07",
+      "group": "09",
+      "width": 361,
+      "height": 233
+    },
+    {
+      "id": "09-08",
+      "group": "09",
+      "width": 182,
+      "height": 233
+    },
+    {
+      "id": "09-09",
+      "group": "09",
+      "width": 338,
+      "height": 113
+    },
+    {
+      "id": "09-10",
+      "group": "09",
+      "width": 336,
+      "height": 166
+    },
+    {
+      "id": "09-11",
+      "group": "09",
+      "width": 283,
+      "height": 109
+    },
+    {
+      "id": "09-12",
+      "group": "09",
+      "width": 226,
+      "height": 197
+    },
+    {
+      "id": "09-13",
+      "group": "09",
+      "width": 334,
+      "height": 211
+    },
+    {
+      "id": "09-14",
+      "group": "09",
+      "width": 328,
+      "height": 172
+    },
+    {
+      "id": "09-15",
+      "group": "09",
+      "width": 310,
+      "height": 229
+    },
+    {
+      "id": "09-16",
+      "group": "09",
+      "width": 264,
+      "height": 154
+    },
+    {
+      "id": "09-17",
+      "group": "09",
+      "width": 288,
+      "height": 167
+    },
+    {
+      "id": "09-18",
+      "group": "09",
+      "width": 319,
+      "height": 153
+    },
+    {
+      "id": "09-19",
+      "group": "09",
+      "width": 323,
+      "height": 113
+    },
+    {
+      "id": "09-20",
+      "group": "09",
+      "width": 290,
+      "height": 173
+    },
+    {
+      "id": "10-01",
+      "group": "10",
+      "width": 320,
+      "height": 277
+    },
+    {
+      "id": "10-02",
+      "group": "10",
+      "width": 319,
+      "height": 316
+    },
+    {
+      "id": "10-03",
+      "group": "10",
+      "width": 312,
+      "height": 308
+    },
+    {
+      "id": "10-04",
+      "group": "10",
+      "width": 282,
+      "height": 340
+    },
+    {
+      "id": "10-05",
+      "group": "10",
+      "width": 344,
+      "height": 296
+    },
+    {
+      "id": "10-06",
+      "group": "10",
+      "width": 355,
+      "height": 184
+    },
+    {
+      "id": "10-07",
+      "group": "10",
+      "width": 279,
+      "height": 275
+    },
+    {
+      "id": "10-08",
+      "group": "10",
+      "width": 266,
+      "height": 261
+    },
+    {
+      "id": "10-09",
+      "group": "10",
+      "width": 281,
+      "height": 272
+    },
+    {
+      "id": "10-10",
+      "group": "10",
+      "width": 287,
+      "height": 280
+    },
+    {
+      "id": "10-11",
+      "group": "10",
+      "width": 300,
+      "height": 313
+    },
+    {
+      "id": "10-12",
+      "group": "10",
+      "width": 252,
+      "height": 328
+    },
+    {
+      "id": "11-01",
+      "group": "11",
+      "width": 409,
+      "height": 299
+    },
+    {
+      "id": "11-02",
+      "group": "11",
+      "width": 410,
+      "height": 296
+    },
+    {
+      "id": "11-03",
+      "group": "11",
+      "width": 406,
+      "height": 307
+    },
+    {
+      "id": "11-04",
+      "group": "11",
+      "width": 340,
+      "height": 288
+    },
+    {
+      "id": "11-05",
+      "group": "11",
+      "width": 420,
+      "height": 288
+    },
+    {
+      "id": "11-06",
+      "group": "11",
+      "width": 433,
+      "height": 251
+    },
+    {
+      "id": "11-07",
+      "group": "11",
+      "width": 362,
+      "height": 317
+    },
+    {
+      "id": "11-08",
+      "group": "11",
+      "width": 294,
+      "height": 310
+    },
+    {
+      "id": "11-09",
+      "group": "11",
+      "width": 285,
+      "height": 307
+    },
+    {
+      "id": "11-10",
+      "group": "11",
+      "width": 342,
+      "height": 296
+    },
+    {
+      "id": "11-11",
+      "group": "11",
+      "width": 552,
+      "height": 200
+    },
+    {
+      "id": "11-12",
+      "group": "11",
+      "width": 121,
+      "height": 116
+    },
+    {
+      "id": "11-13",
+      "group": "11",
+      "width": 136,
+      "height": 117
+    },
+    {
+      "id": "11-14",
+      "group": "11",
+      "width": 354,
+      "height": 233
+    },
+    {
+      "id": "11-15",
+      "group": "11",
+      "width": 136,
+      "height": 120
+    },
+    {
+      "id": "11-16",
+      "group": "11",
+      "width": 118,
+      "height": 120
+    }
+  ]
+}
