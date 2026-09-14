@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """生成动作：POST /projects/{pid}/generate 单入口分发，全部走后台任务。"""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from server import cli, store
 from server.api import tasks
+from server.api.deps import get_owned_project
+from server.core.security import verify_token
 from server.core import characters, compose, lettering, screens
 
 router = APIRouter(tags=["generate"])
@@ -170,7 +172,11 @@ def _build_fn(pid: str, body: GenerateIn):
 
 
 @router.post("/projects/{pid}/generate", status_code=202)
-def generate(pid: str, body: GenerateIn):
+def generate(
+    body: GenerateIn,
+    pid: str = Depends(get_owned_project),
+    people_id: int = Depends(verify_token),
+):
     if tasks.active_for_project(pid):
         raise HTTPException(409, "本项目已有生成任务，请等待完成")
     try:
@@ -183,5 +189,13 @@ def generate(pid: str, body: GenerateIn):
         raise HTTPException(
             409, "故事表还没生成好（创建任务可能仍在跑），请轮询任务状态"
         )
-    t = tasks.submit("generate", pid, body.model_dump(exclude_none=True), fn)
+    # 余额闸门：内测期赠分制，0 余额拦生成（消耗在生成成功后按量结算）
+    from server.services import billing
+    if not billing.check_balance(people_id, min_points=1.0):
+        raise HTTPException(
+            402, {"code": "INSUFFICIENT_POINTS", "message": "积分不足，请联系管理员充值"}
+        )
+    t = tasks.submit(
+        "generate", pid, body.model_dump(exclude_none=True), fn, people_id=people_id
+    )
     return {"task_id": t.task_id, "action": body.action}

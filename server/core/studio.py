@@ -162,6 +162,8 @@ def validate_long_layout(value, scene_ids):
         raise ValueError("标题艺术字样式无效")
     if value.get("align", "center") not in {"left", "center", "right"}:
         raise ValueError("标题对齐方式无效")
+    if value.get("caption_align", "center") not in {"left", "center", "right"}:
+        raise ValueError("旁白对齐方式无效")
     font_size = value.get("font_size", 58)
     if (
         not isinstance(font_size, (int, float))

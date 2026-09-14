@@ -17,6 +17,8 @@ import FooterEditor from "./FooterEditor.jsx";
 import HeadingEditor from "./HeadingEditor.jsx";
 import PageMargins from "./PageMargins.jsx";
 import PageBackground from "./PageBackground.jsx";
+import LongSceneOverlay from "./LongSceneOverlay.jsx";
+import { pollTask } from "../lib/api.js";
 
 const DEFAULT_LAYOUT = {
   template_id: "cards",
@@ -119,6 +121,10 @@ export default function LongImageDesigner({ pid, project, busy, onSave }) {
   const [templateFilter, setTemplateFilter] = useState("all");
   const [options, setOptions] = useState({ ...DEFAULT_LAYOUT, ...(project?.long_layout || {}) });
   const [preview, setPreview] = useState(null);
+  const [layoutBoxes, setLayoutBoxes] = useState(null);
+  const [editSceneId, setEditSceneId] = useState(null);
+  const [applying, setApplying] = useState(false);
+  const previewImgRef = useRef(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [footerBusy, setFooterBusy] = useState(false);
@@ -215,6 +221,7 @@ export default function LongImageDesigner({ pid, project, busy, onSave }) {
         if (urlRef.current) URL.revokeObjectURL(urlRef.current);
         urlRef.current = url;
         setPreview(url);
+        setLayoutBoxes(blob.longLayout || null);
         setError("");
       } catch (e) {
         if (!abort.signal.aborted) setError(e.message || "排版预览失败");
@@ -323,6 +330,56 @@ export default function LongImageDesigner({ pid, project, busy, onSave }) {
     update({ title_image_asset: null });
   }
 
+  /* ---- Click a scene in the preview to fine-tune its bubbles/caption/subject ---- */
+  function previewClick(e) {
+    if (!layoutBoxes?.scenes?.length || !previewImgRef.current || applying) return;
+    const img = previewImgRef.current;
+    const rect = img.getBoundingClientRect();
+    const scale = rect.width / (layoutBoxes.width || 1080);
+    const x = (e.clientX - rect.left) / scale;
+    const y = (e.clientY - rect.top) / scale;
+    const hit = layoutBoxes.scenes.find(b => x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height);
+    if (hit) setEditSceneId(hit.scene_id);
+  }
+  const editBox = layoutBoxes?.scenes?.find(b => b.scene_id === editSceneId);
+  const editScene = project?.scenes?.find(s => s.scene_id === editSceneId);
+  const editStory = project?.storyboard?.scenes?.find(s => s.scene_id === editSceneId);
+  const displayScale = previewImgRef.current ? previewImgRef.current.getBoundingClientRect().width / (layoutBoxes?.width || 1080) : 0.5;
+
+  async function applySceneEdit(changed) {
+    if (!editSceneId) return;
+    setApplying(true);
+    setError("");
+    try {
+      await api.saveLayout(pid, editSceneId, {
+        bubbles: changed.bubbles,
+        caption_layout: changed.caption_layout,
+        subject_layout: changed.subject_layout,
+        caption: changed.caption,
+      });
+      const { task_id } = await api.generate(pid, { action: "recompose_scene", scene_id: editSceneId });
+      await new Promise((resolve, reject) => {
+        const stop = pollTask(task_id, (t) => {
+          if (t.status === "done") { stop(); resolve(); }
+          if (t.status === "failed") { stop(); reject(new Error(t.error || "合成失败")); }
+        });
+      });
+      setEditSceneId(null);
+      // recompose_scene already rebuilds the panel + long image; re-fetch the
+      // preview so the just-dragged elements appear in their new positions.
+      const blob = await api.previewLong(pid, options);
+      const url = URL.createObjectURL(blob);
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+      urlRef.current = url;
+      setPreview(url);
+      setLayoutBoxes(blob.longLayout || null);
+    } catch (e) {
+      setError(e.message || "应用修改失败");
+    } finally {
+      setApplying(false);
+    }
+  }
+
   return (
     <section className="card publishing-studio" aria-label="漫画作品排版">
       <div className="publishing-header">
@@ -350,7 +407,20 @@ export default function LongImageDesigner({ pid, project, busy, onSave }) {
           <div className="publishing-canvas-toolbar"><div><b>{theme.name}</b><span className="muted"> · {theme.format || '经典长图'}</span></div><span className="publishing-zoom-label">适配预览</span></div>
           <p className="publishing-template-description">{theme.description}{theme.layout && ' · 按从左到右、从上到下阅读'}</p>
           <div className="publishing-preview-frame">
-            {preview ? <img src={preview} alt={`${theme.name}排版预览`} style={{ opacity: loading ? 0.52 : 1 }} /> : project?.long_image_url ? <img src={fileUrl(project.long_image_url)} alt="已保存作品" /> : <div className="publishing-empty"><span>✦</span><b>完成分镜后显示作品</b><small>中间区域会实时展示真实排版效果</small></div>}
+            {preview ? (
+              <div className="preview-interactive" onClick={previewClick}>
+                <img ref={previewImgRef} src={preview} alt={`${theme.name}排版预览`} style={{ opacity: loading ? 0.52 : 1 }} />
+                {editBox && editScene && editStory && (
+                  <LongSceneOverlay
+                    pid={pid} scene={editScene} story={editStory} box={editBox}
+                    displayScale={displayScale} backdrop={theme.background}
+                    onDone={applySceneEdit}
+                    onCancel={() => setEditSceneId(null)}
+                  />
+                )}
+                {applying && <p className="preview-applying">正在应用修改并刷新…</p>}
+              </div>
+            ) : project?.long_image_url ? <img src={fileUrl(project.long_image_url)} alt="已保存作品" /> : <div className="publishing-empty"><span>✦</span><b>完成分镜后显示作品</b><small>中间区域会实时展示真实排版效果</small></div>}
           </div>
         </main>
         <div className="publishing-divider" role="separator" aria-label="调整设置栏宽度" aria-orientation="vertical" tabIndex={0}
@@ -368,7 +438,10 @@ export default function LongImageDesigner({ pid, project, busy, onSave }) {
             <div className="publishing-field"><span className="publishing-label">标题效果</span><div className="title-effect-grid">{TITLE_EFFECTS.map((effect) => <button type="button" key={effect.id} className={options.title_style === effect.id ? "is-selected" : ""} disabled={busy} onClick={() => update({ title_style: effect.id })}><TitleEffectSample effect={effect.id} options={options} localFonts={localFonts} /><small>{effect.name}</small></button>)}</div></div>
             <label className="publishing-field">标题字体<select value={options.title_font_id || ""} disabled={busy} onChange={(e) => update({ title_font_id: e.target.value || null })}><option value="">系统默认（微软雅黑）</option>{FONT_SPECS.map((spec) => <option key={spec.id} value={spec.id} disabled={!fontStatus[spec.id]?.loaded}>{spec.name}{fontStatus[spec.id]?.loaded ? " · 可用" : " · 待导入"}</option>)}</select></label>
             <label className="publishing-field">正文与章节字体<select value={options.body_font_id || ""} disabled={busy} onChange={(e) => update({ body_font_id: e.target.value || null })}><option value="">系统默认（微软雅黑）</option>{FONT_SPECS.map((spec) => <option key={spec.id} value={spec.id} disabled={!fontStatus[spec.id]?.loaded}>{spec.name}{fontStatus[spec.id]?.loaded ? " · 可用" : " · 待导入"}</option>)}</select></label>
-            <div className="publishing-font-list">{FONT_SPECS.map((spec) => <label key={spec.id} className="publishing-font-row"><span>{spec.name}</span><span className={fontStatus[spec.id]?.loaded ? "font-ready" : "font-pending"}>{fontStatus[spec.id]?.loaded ? (fontStatus[spec.id]?.installed?.source === "shared" ? "内置可用" : "已导入") : "待导入"}</span><input type="file" accept=".ttf,.otf,.ttc,font/ttf,font/otf,font/collection" disabled={busy || Boolean(fontBusy)} onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; handleFont(file, spec); }} /><button type="button" disabled={busy || Boolean(fontBusy)} onClick={(e) => e.currentTarget.parentElement?.querySelector("input")?.click()}>{fontBusy === spec.id ? "导入中" : "导入"}</button></label>)}</div>
+            <details className="publishing-font-import"><summary>导入自定义字体<small>{fontBusy ? " · 导入中…" : ""}</small></summary>
+              <p className="muted">选一个要替换的字体槽位，再上传 TTF / OTF / TTC，导入后标题与正文可直接选用。</p>
+              {FONT_SPECS.map((spec) => <label key={spec.id} className="publishing-font-row"><span>{spec.name}</span><span className={fontStatus[spec.id]?.loaded ? "font-ready" : "font-pending"}>{fontStatus[spec.id]?.loaded ? "可用" : "待导入"}</span><input type="file" accept=".ttf,.otf,.ttc,font/ttf,font/otf,font/collection" disabled={busy || Boolean(fontBusy)} onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; handleFont(file, spec); }} /><button type="button" disabled={busy || Boolean(fontBusy)} onClick={(e) => e.currentTarget.parentElement?.querySelector("input")?.click()}>{fontBusy === spec.id ? "导入中" : "导入"}</button></label>)}
+            </details>
             <label className="publishing-field">标题字号：{options.font_size || 58} px<input type="range" min="30" max="100" value={options.font_size || 58} disabled={busy} onChange={(e) => update({ font_size: Number(e.target.value) })} /></label>
             <label className="publishing-field">标题对齐<select value={options.align || "center"} disabled={busy} onChange={(e) => update({ align: e.target.value })}><option value="left">左对齐</option><option value="center">居中</option><option value="right">右对齐</option></select></label>
             <label className="publishing-field">主题色<input type="color" value={options.accent || theme.accent} disabled={busy} onChange={(e) => update({ accent: e.target.value })} /></label>
@@ -378,6 +451,7 @@ export default function LongImageDesigner({ pid, project, busy, onSave }) {
           <div className="publishing-inspector-section">
             <div className="publishing-inspector-title"><span>04</span><b>留白与文字</b></div>
             {[['title_top','标题顶部留白',400,48],['title_bottom','标题区底部留白',300,32],['title_line_gap','标题行间距',100,18],['letter_spacing','文字字间距',20,0],['body_line_gap','正文行间距',80,14]].map(([key, label, max, fallback]) => <label className="publishing-field publishing-range-field" key={key}><span>{label}<b>{options[key] ?? fallback} px</b></span><input type="range" min="0" max={max} step="1" value={options[key] ?? fallback} disabled={busy} onChange={(e) => update({ [key]: Number(e.target.value) })} /></label>)}
+            <label className="publishing-field">旁白对齐<select value={options.caption_align || "center"} disabled={busy} onChange={(e) => update({ caption_align: e.target.value })}><option value="left">居左</option><option value="center">居中</option><option value="right">居右</option></select></label>
             <label className="publishing-field publishing-range-field"><span>{columns > 1 ? '统一行间距' : '统一格间距'}<b>{options.gap ?? 60} px</b></span><input type="range" min="0" max="400" step="4" value={options.gap ?? 60} disabled={busy} onChange={(e) => update({ gap: Number(e.target.value), gaps: {} })} /></label>
             {sceneRows.length>1 && <details className="publishing-details"><summary>{columns>1 ? '单独调整每行之后的距离' : '单独调整两格之间的距离'}</summary>{sceneRows.slice(0,-1).map((row,index)=><label className="publishing-field" key={row[0].scene_id}>{columns>1 ? `第 ${index+1} 行之后` : `第 ${index+1} 格与第 ${index+2} 格`}<input type="number" min="0" max="400" value={Math.max(...row.map(scene=>options.gaps?.[scene.scene_id] ?? options.gap ?? 60))} disabled={busy} onChange={e=>update({gaps:{...options.gaps,...Object.fromEntries(row.map(scene=>[scene.scene_id,Math.max(0,Math.min(400,Number(e.target.value)))]))}})}/></label>)}</details>}
           </div>

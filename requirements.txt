@@ -5,3 +5,5 @@ openai>=1.50
 pillow>=10.4
 python-dotenv>=1.0
 httpx>=0.27
+pyjwt>=2.8
+pymysql>=1.1

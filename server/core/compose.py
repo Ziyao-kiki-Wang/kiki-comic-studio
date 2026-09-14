@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import math
 
 from PIL import Image, ImageColor, ImageDraw
 from server import store
@@ -251,6 +252,7 @@ def render_long_image(project_id, sb, options=None):
                 "heading_align": heading_options["align"],
                 "heading_h": heading_h,
                 "caption": cap_lines,
+                "meta": meta,
             }
         )
     if not entries:
@@ -432,23 +434,37 @@ def render_long_image(project_id, sb, options=None):
         image = e["panel"].resize(
             (w - 2 * pad, e["picture_h"]), Image.Resampling.LANCZOS
         )
-        paste_image(canvas, image, (round(x + pad), round(py)))
+        pic_x, pic_y = round(x + pad), round(py)
+        paste_image(canvas, image, (pic_x, pic_y))
+        # Record the picture box so the long-image preview can overlay a
+        # per-scene editor at the exact same position for direct dragging.
+        boxes[-1]["picture"] = {
+            "x": pic_x, "y": pic_y, "width": image.width, "height": image.height,
+            "panel_w": e["panel"].width, "panel_h": e["panel"].height,
+            "caption_layout": bool(e["meta"].get("caption_layout")),
+            "transparent": e["meta"].get("background_mode") == "transparent",
+        }
         cap_y = py + e["picture_h"] + 20
-        if kind == "minimal" and e["caption"]:
-            draw.rectangle(
-                (x + 8, cap_y - 8, x + w - 8, y + h - 4), outline="#e6d7af", width=2
-            )
         if kind == "notice" and e["caption"]:
             draw.line((x + 20, cap_y - 8, x + w - 20, cap_y - 8), fill=accent, width=3)
         if kind == "qa" and e["caption"]:
             draw.rectangle((x, cap_y - 2, x + 5, y + h - 8), fill=accent)
         if kind == "poster" and e["caption"]:
             draw.rectangle((x, py + e["picture_h"], x + w, y + h), fill="#ffffff")
+        cap_align = settings.get("caption_align", "center")
+        cap_anchor = {"left": "lt", "center": "mt", "right": "rt"}.get(cap_align, "lt")
+        cap_tx = x + 24 if cap_align == "left" else (x + w - 24 if cap_align == "right" else x + w / 2)
+        cap_tx = round(cap_tx)
         for line in e["caption"]:
             write(
-                draw, (x + 24, cap_y), line, font=body_font, fill="#30333a", anchor="lt"
+                draw, (cap_tx, cap_y), line, font=body_font, fill="#30333a", anchor=cap_anchor
             )
             cap_y += body_step
+        if e["caption"]:
+            boxes[-1]["caption_box"] = {
+                "x": x + 24, "y": py + e["picture_h"] + 20,
+                "width": w - 48, "height": math.ceil(len(e["caption"]) * body_step),
+            }
         y += h + (gaps[i] if i < len(gaps) else 0)
     draw.line((72, y + 28, 1008, y + 28), fill=accent, width=2)
     for i, line in enumerate(foot_lines):

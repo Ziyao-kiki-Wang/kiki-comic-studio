@@ -50,6 +50,12 @@ def _request(prompt: str, temperature: float, image_refs: list[tuple[str, Path]]
             r = _client.chat.completions.create(**kwargs)
         else:
             raise
+    # 计费：把本次 token 用量记进任务线程的计量器（后台任务收尾统一结算）
+    try:
+        from server.services import billing
+        billing.record_llm_usage(getattr(r, "usage", None))
+    except Exception:
+        pass  # 计量失败不阻断生成
     return r.choices[0].message.content or ""
 
 

@@ -7,6 +7,7 @@
 
 import fontCatalog from "../../../schemas/fonts.json";
 import { fileUrl } from "./api.js";
+import { getToken } from "./auth.js";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 
@@ -27,7 +28,10 @@ function projectPath(pid, suffix) {
 }
 
 async function jsonRequest(url, options = {}) {
-  const response = await fetch(url, options);
+  const token = getToken();
+  const headers = { ...(options.headers || {}) };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const response = await fetch(url, { ...options, headers });
   if (!response.ok) {
     let detail = `HTTP ${response.status}`;
     try {
@@ -150,7 +154,10 @@ export function assetUrl(asset, pid) {
   if (value && !value.endsWith(String(asset?.path || ""))) return value;
   const path = asset?.path;
   if (!pid || !path) return value;
-  return `${API_BASE}/api/files/${encodeURIComponent(pid)}/${String(path).split("/").map(encodeURIComponent).join("/")}`;
+  const base = `${API_BASE}/api/files/${encodeURIComponent(pid)}/${String(path).split("/").map(encodeURIComponent).join("/")}`;
+  // 归属校验需要 token：与 fileUrl 同样拼 query（<img>/fetch 可用）
+  const token = getToken();
+  return base + (token ? `?token=${encodeURIComponent(token)}` : "");
 }
 
 export async function listSceneReferences(pid, sceneId) {

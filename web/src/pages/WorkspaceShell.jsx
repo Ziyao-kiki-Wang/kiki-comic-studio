@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useMatch } from 'react-router-dom';
 import ProjectSidebar from './ProjectSidebar.jsx';
+import { getUser, logout } from '../lib/auth';
+import { getPoints } from '../lib/authApi';
 import './workspace.css';
 
 const WorkspaceContext = createContext(() => {});
@@ -18,6 +20,13 @@ export default function WorkspaceShell() {
   const location = useLocation();
   const [guard, setGuard] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
+  const [points, setPoints] = useState(null);
+  const user = getUser();
+  useEffect(() => {
+    let alive = true;
+    getPoints().then(r => { if (alive && r?.success) setPoints(r.data.points); }).catch(() => {});
+    return () => { alive = false; };
+  }, [location.pathname]);  // 路由切换时刷新一次余额
   const active = sid ? 'refine' : (new URLSearchParams(location.search).get('step') || 'story');
   useEffect(() => { if (sid) sessionStorage.setItem(`comic-scene-${pid}`, sid); }, [pid, sid]);
   useEffect(() => { setProjectsOpen(false); }, [location.pathname, location.search]);
@@ -59,7 +68,13 @@ export default function WorkspaceShell() {
       </aside>}
       {projectsOpen && <button className="projects-backdrop" aria-label={pid ? '收起创作导航' : '收起项目列表'} onClick={()=>setProjectsOpen(false)}/>}
       <main className="workspace-main">
-        <div className="workspace-breadcrumb"><button className="projects-toggle" aria-controls={pid ? 'creation-sidebar' : 'project-sidebar'} aria-expanded={projectsOpen} onClick={()=>setProjectsOpen(!projectsOpen)}>{pid ? '☰ 创作步骤' : '☰ 项目'}</button><span>漫画工坊</span><span>/</span><strong>{pid ? steps.find(s => s[0] === active)?.[1] || '分镜制作' : '新建项目'}</strong><span className="workspace-save-hint">{guard ? '有未保存的修改' : '从故事到作品，在这里完成'}</span></div>
+        <div className="workspace-breadcrumb"><button className="projects-toggle" aria-controls={pid ? 'creation-sidebar' : 'project-sidebar'} aria-expanded={projectsOpen} onClick={()=>setProjectsOpen(!projectsOpen)}>{pid ? '☰ 创作步骤' : '☰ 项目'}</button><span>漫画工坊</span><span>/</span><strong>{pid ? steps.find(s => s[0] === active)?.[1] || '分镜制作' : '新建项目'}</strong><span className="workspace-save-hint">{guard ? '有未保存的修改' : '从故事到作品，在这里完成'}</span>
+          <span className="workspace-user">
+            {points !== null && <Link to="/profile" className="workspace-points" title="积分余额">{points} 分</Link>}
+            <Link to="/profile" className="workspace-user-name">{user?.name || '我的'}</Link>
+            <button className="workspace-logout" onClick={logout} title="退出登录">退出</button>
+          </span>
+        </div>
         <Outlet key={pid || 'new-project'} />
       </main>
     </div>
