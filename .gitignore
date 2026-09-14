@@ -1,0 +1,39 @@
+# 依赖与构建产物
+node_modules/
+dist/
+
+# Python 环境
+.venv/
+__pycache__/
+*.pyc
+
+# spike 独立环境
+spike/.venv/
+
+# 本地密钥
+.env
+
+# 系统杂项
+.DS_Store
+Thumbs.db
+
+# 本地模型、开发验证与备份
+.models/
+output/
+
+# 工具缓存
+.pytest_cache/
+.ruff_cache/
+
+# 用户漫画项目数据（运行期生成，含上传形象与成品图）
+projects/
+
+# 调研用外部开源仓库
+references/
+
+# 字体二进制体积较大，由 fonts/README.md 记录来源与安装方式
+fonts/*
+!fonts/README.md
+
+# spike 试验输出
+spike/output*/

@@ -1,0 +1,20 @@
+做AI应用要给自己的agent编程时候发的内容
+
+/v1/images/generations  这个是图片生成的API端点
+gpt-image-2这个是模型名称
+sk-wIJKfGuKpJgAr1ilCYHE72qsbX9SpwoCQBMWtF4titKvgnQl 这是我的api key
+https://api.openlux.ai/v1 这是base url
+
+
+# POST https://api.openlux.ai/v1/chat/completions (OpenAI 兼容)
+from openai import OpenAI
+
+client = OpenAI(api_key="sk-wIJKfGuKpJgAr1ilCYHE72qsbX9SpwoCQBMWtF4titKvgnQl", base_url="https://api.openlux.ai/v1")
+
+resp = client.chat.completions.create(
+    model="gpt-5.5-pro",
+    messages=[{"role": "user", "content": "你好，请用一句话介绍你自己。"}],
+    temperature=0.7,
+)
+print(resp.choices[0].message.content) 这是调用方法
+我用的是openlux这个中转站里面的openai
