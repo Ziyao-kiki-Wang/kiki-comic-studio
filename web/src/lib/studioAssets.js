@@ -9,7 +9,9 @@ import fontCatalog from "../../../schemas/fonts.json";
 import { fileUrl } from "./api.js";
 import { getToken } from "./auth.js";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+const API_BASE =
+  import.meta.env.VITE_API_BASE ??
+  (import.meta.env.PROD ? "" : "http://127.0.0.1:8000");
 
 export const FONT_SPECS = (fontCatalog.fonts || []).map((font) => ({
   ...font,

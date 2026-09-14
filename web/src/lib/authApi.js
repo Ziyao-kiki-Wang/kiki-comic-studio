@@ -1,7 +1,11 @@
 // 账户域 API（/api/auth/*、/api/user/*）。
 // 契约：业务失败 HTTP 200 + {value: msg}；成功见各函数注释。
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+//
+// production 下 API_BASE 留空 → 请求走同源，由 nginx 把 /api/* 反代到后端 8002。
+// 本地开发时 VITE_API_BASE 指向后端（默认 http://127.0.0.1:8000）。
+const API_BASE =
+  import.meta.env.VITE_API_BASE ??
+  (import.meta.env.PROD ? "" : "http://127.0.0.1:8000");
 
 import { getToken } from "./auth";
 
@@ -10,6 +14,7 @@ async function post(path, body) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(20000), // 20s 超时，兜底慢网络
   });
   return res.json();
 }
@@ -18,6 +23,7 @@ async function get(path) {
   const token = getToken();
   const res = await fetch(API_BASE + path, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
+    signal: AbortSignal.timeout(20000),
   });
   return res.json();
 }

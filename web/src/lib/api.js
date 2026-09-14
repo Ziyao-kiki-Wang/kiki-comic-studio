@@ -1,5 +1,7 @@
 // 后端地址：开发时直连 8000 端口（后端 CORS 已全开）
-const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+const API_BASE =
+  import.meta.env.VITE_API_BASE ??
+  (import.meta.env.PROD ? "" : "http://127.0.0.1:8000");
 
 import { getToken, clearLoginState } from "./auth";
 
@@ -15,7 +17,11 @@ async function request(path, options = {}) {
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(API_BASE + path, { ...options, headers });
+  const res = await fetch(API_BASE + path, {
+    ...options,
+    headers,
+    signal: options.signal ?? AbortSignal.timeout(60000), // 60s，生图接口耗时久
+  });
   if (res.status === 401) {
     // 全局 401：清登录态并跳登录页（登录/注册页自身除外，避免死循环）
     clearLoginState();
