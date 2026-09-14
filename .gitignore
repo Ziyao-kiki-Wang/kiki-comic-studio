@@ -37,3 +37,4 @@ fonts/*
 
 # spike 试验输出
 spike/output*/
+web/.vite/
