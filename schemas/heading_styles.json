@@ -1,0 +1,11 @@
+{
+  "styles": [
+    {"id":"plain","name":"简约文字","description":"无底色，清爽直接","background":false,"fill":"#ffffff","text_color":null},
+    {"id":"block","name":"方形底牌","description":"利落方角，浅杏底色","background":true,"fill":"#ffe6be","text_color":"#755027"},
+    {"id":"rounded","name":"圆角软糖","description":"柔和圆角，蜜桃色块","background":true,"fill":"#ffe0d6","text_color":"#873e36"},
+    {"id":"candy","name":"糖纸标签","description":"糖纸折边，草莓粉色","background":true,"fill":"#fbd9e7","text_color":"#903b60"},
+    {"id":"wave","name":"波浪底牌","description":"起伏波浪，清新薄荷","background":true,"fill":"#d9f0e7","text_color":"#2c6855"},
+    {"id":"ribbon","name":"折角丝带","description":"两端折角，浅紫丝带","background":true,"fill":"#e6dff8","text_color":"#615082"},
+    {"id":"underline","name":"波浪下划线","description":"无底色，用波浪线点缀","background":false,"fill":"#ffffff","text_color":null}
+  ]
+}

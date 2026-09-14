@@ -1,0 +1,350 @@
+{
+  "bubbles": [
+    {
+      "id": "speech",
+      "name": "日常圆角",
+      "tail": true
+    },
+    {
+      "id": "ellipse",
+      "name": "柔和椭圆",
+      "tail": true
+    },
+    {
+      "id": "burst",
+      "name": "震惊爆炸",
+      "tail": false
+    },
+    {
+      "id": "thought",
+      "name": "思考云朵",
+      "tail": true
+    },
+    {
+      "id": "whisper",
+      "name": "低声细语",
+      "tail": true
+    },
+    {
+      "id": "caption",
+      "name": "旁白方框",
+      "tail": false
+    },
+    {
+      "id": "cloud",
+      "name": "蓬松云朵",
+      "tail": true
+    },
+    {
+      "id": "shout",
+      "name": "长短尖角",
+      "tail": false
+    },
+    {
+      "id": "handdrawn",
+      "name": "手绘椭圆",
+      "tail": true
+    },
+    {
+      "id": "soft",
+      "name": "柔软圆角",
+      "tail": true
+    },
+    {
+      "id": "asset_cloud",
+      "name": "大朵云尾",
+      "tail": false,
+      "asset_prefix": "cloud",
+      "reference_ext": ".jpg",
+      "asset_aspect": 1.3931240657698056
+    },
+    {
+      "id": "asset_halftone_oval",
+      "name": "网点椭圆",
+      "tail": false,
+      "asset_prefix": "halftone_oval",
+      "reference_ext": ".jpg",
+      "asset_aspect": 1.125748502994012
+    },
+    {
+      "id": "asset_ink_oval",
+      "name": "墨点圆框",
+      "tail": false,
+      "asset_prefix": "ink_oval",
+      "reference_ext": ".jpg",
+      "asset_aspect": 1.010752688172043
+    },
+    {
+      "id": "asset_smoke",
+      "name": "烟雾云团",
+      "tail": false,
+      "asset_prefix": "smoke",
+      "reference_ext": ".jpg",
+      "asset_aspect": 1.0542986425339367
+    },
+    {
+      "id": "asset_burst",
+      "name": "利落爆炸",
+      "tail": false,
+      "asset_prefix": "burst",
+      "reference_ext": ".jpg",
+      "asset_aspect": 1.048368953880765
+    },
+    {
+      "id": "asset_brush_cloud",
+      "name": "笔触云尾",
+      "tail": false,
+      "asset_prefix": "brush_cloud",
+      "reference_ext": ".jpg",
+      "asset_aspect": 1.2247043363994743
+    },
+    {
+      "id": "asset_radiant_cloud",
+      "name": "放射云尾",
+      "tail": false,
+      "asset_prefix": "radiant_cloud",
+      "reference_ext": ".jpg",
+      "asset_aspect": 1.0401662049861495
+    },
+    {
+      "id": "asset_brush_rect",
+      "name": "手绘长框",
+      "tail": false,
+      "asset_prefix": "brush_rect",
+      "reference_ext": ".jpg",
+      "asset_aspect": 1.4351585014409223
+    },
+    {
+      "id": "asset_smoke_burst",
+      "name": "四角烟团",
+      "tail": false,
+      "asset_prefix": "smoke_burst",
+      "reference_ext": ".jpg",
+      "asset_aspect": 0.9927007299270073
+    },
+    {
+      "id": "asset_thought_cloud",
+      "name": "素描思考",
+      "tail": false,
+      "asset_prefix": "thought_cloud",
+      "reference_ext": ".png",
+      "asset_aspect": 1.2147239263803682
+    },
+    {
+      "id": "asset_speed_oval",
+      "name": "速度椭圆",
+      "tail": false,
+      "asset_prefix": "speed_oval",
+      "reference_ext": ".jpg",
+      "asset_aspect": 1.4681647940074907
+    },
+    {
+      "id": "asset_slanted_oval",
+      "name": "倾斜笔触",
+      "tail": false,
+      "asset_prefix": "slanted_oval",
+      "reference_ext": ".jpg",
+      "asset_aspect": 1.171764705882353
+    },
+    {
+      "id": "asset_wide_burst",
+      "name": "横向爆炸",
+      "tail": false,
+      "asset_prefix": "wide_burst",
+      "reference_ext": ".jpg",
+      "asset_aspect": 1.3529411764705883
+    },
+    {
+      "id": "asset_lightning",
+      "name": "闪电尾巴",
+      "tail": false,
+      "asset_prefix": "lightning",
+      "reference_ext": ".jpg",
+      "asset_aspect": 1.0131926121372032
+    }
+  ],
+  "templates": [
+    {
+      "id": "minimal",
+      "name": "清爽科普",
+      "description": "纯白底、绿色章节签和轻盈提示框，适合完整场景小品",
+      "accent": "#2b7062",
+      "background": "#ffffff"
+    },
+    {
+      "id": "cards",
+      "name": "简洁卡片",
+      "description": "独立圆角卡片，适合日常宣传",
+      "accent": "#2459a6",
+      "background": "#edf2f9"
+    },
+    {
+      "id": "magazine",
+      "name": "杂志分章",
+      "description": "留白标题和分章结构，适合品牌故事",
+      "accent": "#244640",
+      "background": "#faf8f2"
+    },
+    {
+      "id": "frames",
+      "name": "漫画分镜",
+      "description": "粗线边框和旁白标签，适合连续剧情",
+      "accent": "#25252b",
+      "background": "#fffdf5"
+    },
+    {
+      "id": "stickers",
+      "name": "贴纸手账",
+      "description": "胶带和照片卡片，适合轻松故事",
+      "accent": "#aa6137",
+      "background": "#f8eede"
+    },
+    {
+      "id": "timeline",
+      "name": "事件时间轴",
+      "description": "纵向串联事件，适合案例复盘",
+      "accent": "#197875",
+      "background": "#eaf4f2"
+    },
+    {
+      "id": "qa",
+      "name": "问答科普",
+      "description": "问题、情景和解答，适合知识宣传",
+      "accent": "#6552a0",
+      "background": "#f3effa"
+    },
+    {
+      "id": "notebook",
+      "name": "知识笔记",
+      "description": "横线纸和页边标记，适合操作指南",
+      "accent": "#376390",
+      "background": "#f8faf7"
+    },
+    {
+      "id": "poster",
+      "name": "整幅海报",
+      "description": "大画面与字幕条，适合视觉叙事",
+      "accent": "#193340",
+      "background": "#eaf0f2"
+    },
+    {
+      "id": "notice",
+      "name": "重点提示",
+      "description": "画面配独立提醒区，适合风险提示",
+      "accent": "#b54c2c",
+      "background": "#fff2e5"
+    },
+    {
+      "id": "scroll",
+      "name": "国风长卷",
+      "description": "章回题签与双线页边，适合文化故事",
+      "accent": "#76503b",
+      "background": "#f2e9d5"
+    },
+    {
+      "id": "editorial_mix",
+      "name": "图文交错",
+      "description": "画面与标题旁白左右交替，像翻阅一篇故事特写",
+      "accent": "#8d4937",
+      "background": "#faf5ee",
+      "layout": "editorial_mix",
+      "format": "图文长页"
+    },
+    {
+      "id": "magazine_grid",
+      "name": "杂志跨栏",
+      "description": "首格大图开场，后续双栏展开，主次更鲜明",
+      "accent": "#254c57",
+      "background": "#f6f4ef",
+      "layout": "magazine_grid",
+      "format": "杂志拼版"
+    },
+    {
+      "id": "sketchbook",
+      "name": "手绘拼贴",
+      "description": "错落照片卡、手绘线条与胶带，温暖又轻松",
+      "accent": "#827044",
+      "background": "#f8f1df",
+      "layout": "sketchbook",
+      "format": "手绘双栏"
+    },
+    {
+      "id": "filmstrip",
+      "name": "电影胶片",
+      "description": "深色片场、胶片齿孔与双栏镜头，连贯讲故事",
+      "accent": "#e0b772",
+      "background": "#19252c",
+      "header_fill": "#263842",
+      "layout": "filmstrip",
+      "format": "电影双栏"
+    },
+    {
+      "id": "comic_strip",
+      "name": "横向连环画",
+      "description": "每行最多三格，从左往右阅读，适合短篇漫画",
+      "accent": "#343445",
+      "background": "#fffaf0",
+      "layout": "comic_strip",
+      "format": "横向排版"
+    },
+    {
+      "id": "gallery_grid",
+      "name": "方形画廊",
+      "description": "方形画框、柔和底色与整齐双栏，像一面故事展墙",
+      "accent": "#3b7269",
+      "background": "#eaf3ef",
+      "layout": "gallery_grid",
+      "format": "双栏画廊"
+    }
+  ],
+  "bubble_presets": [
+    {
+      "id": "classic",
+      "name": "经典墨线",
+      "fill": "#ffffff",
+      "stroke": "#333333",
+      "stroke_width": 3,
+      "text_color": "#222222"
+    },
+    {
+      "id": "borderless",
+      "name": "纯白无边框",
+      "fill": "#ffffff",
+      "stroke": "#ffffff",
+      "stroke_width": 0,
+      "text_color": "#30333a"
+    },
+    {
+      "id": "lavender",
+      "name": "浅紫无边框",
+      "fill": "#eeebf7",
+      "stroke": "#ddd5ee",
+      "stroke_width": 0,
+      "text_color": "#42394e"
+    },
+    {
+      "id": "mint",
+      "name": "薄荷无边框",
+      "fill": "#e3f2eb",
+      "stroke": "#86bba5",
+      "stroke_width": 0,
+      "text_color": "#244640"
+    },
+    {
+      "id": "cream",
+      "name": "奶油轻描边",
+      "fill": "#fff5da",
+      "stroke": "#d6b976",
+      "stroke_width": 2,
+      "text_color": "#5c4728"
+    },
+    {
+      "id": "ink",
+      "name": "黑底白字",
+      "fill": "#24242b",
+      "stroke": "#24242b",
+      "stroke_width": 0,
+      "text_color": "#ffffff"
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "project_id": "anti_fraud_001",
+  "title": "警惕电信诈骗",
+
+  "topic": {
+    "theme": "银行防诈骗宣传",
+    "target_audience": "中老年客户",
+    "tone": "亲切、口语化",
+    "scene_count": 6,
+    "dialogues_per_scene": "2-3",
+    "content_goal": "解释常见电信诈骗套路，告诉客户遇到可疑电话先找银行核实"
+  },
+
+  "style": {
+    "illustration_style": "简洁的中文商业漫画风，平涂上色，线条柔和",
+    "color_tone": "明亮、温暖",
+    "negative_prompt": "text, words, letters, speech bubble, watermark"
+  },
+
+  "characters": [
+    {
+      "character_id": "bank_staff_01",
+      "name": "小林",
+      "role": "银行工作人员",
+      "one_line_look": "28岁女性，黑色齐肩发，穿深蓝色银行制服"
+    },
+    {
+      "character_id": "customer_01",
+      "name": "王大爷",
+      "role": "银行客户",
+      "one_line_look": "60岁男性，花白短发，穿灰色夹克"
+    }
+  ],
+
+  "props": [
+    {
+      "prop_id": "phone_01",
+      "name": "王大爷的手机",
+      "english_desc": "a dark gray smartphone with a plain back, no logo",
+      "reference_image": "props/phone_01.png"
+    }
+  ],
+
+  "scenes": [
+    {
+      "scene_id": "scene_01",
+      "order": 1,
+      "location": "王大爷家中客厅",
+      "background": "温馨的居家客厅，有沙发和茶几",
+      "characters": ["customer_01"],
+      "story": "王大爷在家接到陌生电话，对方自称银行客服，说他的银行卡存在风险。",
+      "dialogues": [
+        { "speaker": "customer_01", "text": "什么？我的卡被冻结了？" }
+      ],
+      "caption": "陌生来电声称银行卡异常，是诈骗的常见开场。",
+      "character_notes": {
+        "customer_01": { "pose": "坐着打电话", "emotion": "慌张" }
+      }
+    },
+    {
+      "scene_id": "scene_02",
+      "order": 2,
+      "location": "银行大厅",
+      "background": "明亮整洁的银行营业厅",
+      "characters": ["bank_staff_01", "customer_01"],
+      "story": "王大爷赶到银行要转账，工作人员小林及时拦住并帮他核实。",
+      "dialogues": [
+        { "speaker": "customer_01", "text": "他说我的卡被冻结了，让我马上转账验证！" },
+        { "speaker": "bank_staff_01", "text": "大爷您先别急，我们帮您查一下就知道了。" }
+      ],
+      "caption": "转账前先到银行柜台核实，是最稳妥的办法。",
+      "character_notes": {
+        "customer_01": { "pose": "站着，举着手机", "emotion": "着急" },
+        "bank_staff_01": { "pose": "站着，伸手示意停下", "emotion": "冷静、微笑" }
+      }
+    }
+  ]
+}

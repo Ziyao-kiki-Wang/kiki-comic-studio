@@ -1,0 +1,92 @@
+{
+  "scene_id": "scene_02",
+
+  "canvas": {
+    "width": 1080,
+    "height": 810
+  },
+
+  "render_mode": "layered_scene",
+
+  "layers": [
+    {
+      "type": "background",
+      "asset": "assets/backgrounds/scene_02_bg.png",
+      "prompt": "明亮整洁的银行营业厅，干净的商业漫画风",
+      "x": 0,
+      "y": 0,
+      "width": 1080,
+      "height": 810,
+      "z_index": 0
+    },
+    {
+      "type": "character",
+      "character_id": "customer_01",
+      "asset": "assets/characters/customer_01_worried.png",
+      "pose": "站着，举着手机",
+      "emotion": "着急",
+      "x": 120,
+      "y": 260,
+      "width": 380,
+      "height": 550,
+      "flip_horizontal": false,
+      "z_index": 10
+    },
+    {
+      "type": "character",
+      "character_id": "bank_staff_01",
+      "asset": "assets/characters/bank_staff_01_calm.png",
+      "pose": "站着，伸手示意停下",
+      "emotion": "冷静、微笑",
+      "x": 620,
+      "y": 230,
+      "width": 360,
+      "height": 580,
+      "flip_horizontal": true,
+      "z_index": 10
+    },
+    {
+      "type": "screen_inset",
+      "asset": "assets/screens/scene_02_screen.png",
+      "note": "特写框：AI 单独生成的手机屏幕内容，叠加在场景上；人物正常拿手机、屏幕不朝向观众",
+      "x": 700,
+      "y": 80,
+      "width": 300,
+      "height": 450,
+      "z_index": 20
+    }
+  ],
+
+  "bubbles": [
+    {
+      "bubble_id": "b01",
+      "type": "speech",
+      "speaker": "customer_01",
+      "text": "他说我的卡被冻结了，让我马上转账验证！",
+      "x": 90,
+      "y": 60,
+      "width": 380,
+      "font_size": 34,
+      "tail_to": "customer_01"
+    },
+    {
+      "bubble_id": "b02",
+      "type": "speech",
+      "speaker": "bank_staff_01",
+      "text": "大爷您先别急，我们帮您查一下就知道了。",
+      "x": 600,
+      "y": 40,
+      "width": 400,
+      "font_size": 34,
+      "tail_to": "bank_staff_01"
+    }
+  ],
+
+  "caption": {
+    "text": "转账前先到银行柜台核实，是最稳妥的办法。",
+    "position": "bottom",
+    "font_size": 30
+  },
+
+  "status": "draft"
+}

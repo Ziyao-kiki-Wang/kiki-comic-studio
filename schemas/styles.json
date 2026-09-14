@@ -1,0 +1,70 @@
+{
+  "说明": "风格菜单：开新项目时从 styles 里选一个，把它的 style_prompt 和 negative_prompt 填进 storyboard.json 的 style 字段。所有画图都会自动带上，整部漫画风格统一。",
+
+  "styles": [
+    {
+      "style_id": "commercial_comic",
+      "name": "商业漫画风（默认）",
+      "look": "干净的线条 + 平涂上色，像银行/政务宣传漫画",
+      "style_prompt": "clean Chinese commercial comic style, soft clean lines, flat shading, bright warm colors, simple shapes",
+      "negative_prompt": "text, words, letters, speech bubble, watermark, photorealistic, dark, horror",
+      "suitable_for": "银行、政务、企业宣传，中老年受众"
+    },
+    {
+      "style_id": "pixar_3d",
+      "name": "皮克斯 3D 动画风",
+      "look": "圆滚滚的可爱 3D 人物，大眼，柔和光影，像动画电影截图",
+      "style_prompt": "Pixar style 3D animation render, cute round characters, big expressive eyes, soft cinematic lighting, subsurface scattering, high quality 3D render",
+      "negative_prompt": "text, words, letters, speech bubble, watermark, 2d, flat, sketch, scary, realistic human",
+      "suitable_for": "面向年轻人/儿童的宣传，轻松活泼的主题"
+    },
+    {
+      "style_id": "sketch",
+      "name": "素描手绘风",
+      "look": "铅笔线条 + 淡彩，像手绘速写本",
+      "style_prompt": "hand-drawn pencil sketch style, light watercolor wash, visible pencil lines, paper texture, gentle and artistic",
+      "negative_prompt": "text, words, letters, speech bubble, watermark, 3d render, photorealistic, heavy colors",
+      "suitable_for": "文艺、历史、怀旧主题"
+    },
+    {
+      "style_id": "watercolor",
+      "name": "水彩插画风",
+      "look": "柔和的水彩晕染，颜色淡雅，像绘本",
+      "style_prompt": "soft watercolor illustration, gentle color bleeding, pastel palette, children's picture book style, warm and cozy",
+      "negative_prompt": "text, words, letters, speech bubble, watermark, 3d, dark, harsh lines",
+      "suitable_for": "温情故事、节日宣传、生活类主题"
+    },
+    {
+      "style_id": "japanese_manga",
+      "name": "日式黑白漫画风",
+      "look": "黑白网点纸漫画，像日本漫画书",
+      "style_prompt": "Japanese manga style, black and white, screentone shading, clean ink lines, dynamic composition",
+      "negative_prompt": "text, words, letters, speech bubble, watermark, color, 3d, photorealistic",
+      "suitable_for": "剧情感强、年轻人受众的连载内容"
+    },
+    {
+      "style_id": "chibi",
+      "name": "Q版萌系风",
+      "look": "二头身小人，超可爱，表情夸张",
+      "style_prompt": "chibi style, super deformed cute characters, big head small body, kawaii, simple bright colors, thick outlines",
+      "negative_prompt": "text, words, letters, speech bubble, watermark, realistic proportions, dark, scary",
+      "suitable_for": "轻松科普、表情包式宣传、社交媒体传播"
+    },
+    {
+      "style_id": "flat_illustration",
+      "name": "扁平插画风",
+      "look": "几何色块拼成的现代扁平插画，像互联网公司的宣传图",
+      "style_prompt": "modern flat vector illustration, geometric shapes, bold color blocks, minimal details, corporate Memphis style",
+      "negative_prompt": "text, words, letters, speech bubble, watermark, 3d, realistic, sketch, gradients overload",
+      "suitable_for": "金融、科技、制度说明类严肃内容"
+    },
+    {
+      "style_id": "guofeng",
+      "name": "国风水墨风",
+      "look": "水墨淡彩 + 国画线条，有中国传统韵味",
+      "style_prompt": "Chinese ink wash painting style, guofeng, elegant brush strokes, light color wash, traditional Chinese aesthetic, rice paper texture",
+      "negative_prompt": "text, words, letters, speech bubble, watermark, 3d, western comic, photorealistic",
+      "suitable_for": "传统文化、节日、文博类主题"
+    }
+  ]
+}

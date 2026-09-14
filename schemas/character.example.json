@@ -1,0 +1,36 @@
+{
+  "character_id": "bank_staff_01",
+  "name": "小林",
+  "role": "银行工作人员",
+
+  "identity": {
+    "gender": "female",
+    "age": 28,
+    "occupation": "bank clerk"
+  },
+
+  "appearance": {
+    "hair": "shoulder-length black hair, neat",
+    "face": "oval face, gentle eyes, warm smile",
+    "body": "slim build",
+    "glasses": false
+  },
+
+  "clothing": {
+    "top": "white shirt",
+    "outerwear": "dark blue bank uniform blazer",
+    "bottom": "dark blue trousers",
+    "accessories": ["name badge on chest"]
+  },
+
+  "style_prompt": "clean Chinese commercial comic style, soft lines, flat shading, bright warm colors, no text, no speech bubble, plain background",
+
+  "reference_images": {
+    "front": "characters/bank_staff_01/front.png",
+    "fullbody": "characters/bank_staff_01/fullbody.png",
+    "smile": "characters/bank_staff_01/smile.png",
+    "side": "characters/bank_staff_01/side.png"
+  },
+
+  "status": "approved"
+}
