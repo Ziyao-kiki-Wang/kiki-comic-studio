@@ -259,3 +259,28 @@
   .publishing-studio .publishing-canvas { max-height:70vh; }
   .publishing-studio .publishing-preview-frame { min-height:350px; }
 }
+
+/* ---- Interactive long-image preview overlay ---- */
+.preview-interactive { position: relative; display: inline-block; cursor: pointer; }
+.preview-interactive > img { display: block; width: 100%; }
+.preview-hint {
+  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+  margin: 0; padding: 6px 14px; background: rgba(43,112,98,.88); color: #fff;
+  font-size: 12px; border-radius: 20px; white-space: nowrap; pointer-events: none;
+}
+.preview-applying {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  margin: 0; padding: 6px 16px; background: rgba(255,209,102,.95); color: #5a3b00;
+  font-size: 13px; font-weight: 600; border-radius: 20px; white-space: nowrap;
+}
+.long-overlay {
+  position: absolute; z-index: 20; outline: 2px solid #2f6fdb; outline-offset: 1px;
+  background: rgba(255,255,255,.04); box-shadow: 0 0 0 2000px rgba(20,40,32,.28);
+}
+.long-overlay-actions {
+  position: absolute; bottom: -44px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 8px; white-space: nowrap;
+}
+.long-overlay-actions button { padding: 7px 14px; border-radius: 8px; font-size: 13px; box-shadow: 0 3px 10px #0003; }
+.publishing-font-import { margin: 8px 0; font-size: 13px; }
+.publishing-font-import summary { cursor: pointer; color: #2b7062; font-weight: 600; }

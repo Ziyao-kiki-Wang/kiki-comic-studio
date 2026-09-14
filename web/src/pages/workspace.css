@@ -59,3 +59,40 @@
 .creation-sidebar { width:240px; }
 @media(min-width:761px) and (max-width:1100px){ .workspace-shell:has(.creation-sidebar) .workspace-main{margin-left:240px} }
 @media(max-width:760px){ .creation-sidebar{width:260px}.creation-sidebar .workspace-steps{padding:3px 2px 12px;gap:12px}.creation-sidebar .workspace-step{padding:18px 12px;gap:12px}.creation-sidebar .workspace-icon{font-size:29px} }
+
+/* ===== 用户区（面包屑右侧） ===== */
+.workspace-breadcrumb { display: flex; align-items: center; }
+.workspace-user {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.workspace-user-name {
+  font-size: 14px;
+  color: #2c2a26;
+  text-decoration: none;
+  font-weight: 500;
+}
+.workspace-user-name:hover { text-decoration: underline; }
+.workspace-logout {
+  border: 1px solid #d8d2c6;
+  background: #fff;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: #888;
+  cursor: pointer;
+}
+.workspace-logout:hover { color: #c0392b; border-color: #c0392b; }
+
+.workspace-points {
+  font-size: 13px;
+  font-weight: 600;
+  color: #b8860b;
+  background: #fdf6e3;
+  border: 1px solid #f0e3c0;
+  border-radius: 12px;
+  padding: 2px 10px;
+  text-decoration: none;
+}

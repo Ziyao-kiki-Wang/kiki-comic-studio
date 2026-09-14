@@ -1,29 +1,55 @@
 // 后端地址：开发时直连 8000 端口（后端 CORS 已全开）
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 
+import { getToken, clearLoginState } from "./auth";
+
+class UnauthorizedError extends Error {
+  constructor(msg) {
+    super(msg || "登录已过期");
+    this.unauthorized = true;
+  }
+}
+
 async function request(path, options = {}) {
-  const res = await fetch(API_BASE + path, options);
+  const headers = { ...(options.headers || {}) };
+  const token = getToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(API_BASE + path, { ...options, headers });
+  if (res.status === 401) {
+    // 全局 401：清登录态并跳登录页（登录/注册页自身除外，避免死循环）
+    clearLoginState();
+    if (!location.pathname.startsWith("/login") && !location.pathname.startsWith("/register")) {
+      location.href = "/login";
+    }
+    throw new UnauthorizedError();
+  }
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
     try {
       const data = await res.json();
-      if (data.detail)
-        detail =
-          typeof data.detail === "string"
-            ? data.detail
-            : JSON.stringify(data.detail);
+      const d = data.detail;
+      if (typeof d === "string") detail = d;
+      else if (d && d.message) detail = d.message;  // {code,message} 形式
+      else if (d) detail = JSON.stringify(d);
     } catch {
       /* 忽略解析失败 */
     }
-    throw new Error(detail);
+    const err = new Error(detail);
+    err.status = res.status;
+    if (res.status === 402) err.insufficientPoints = true;
+    throw err;
   }
   return res.json();
 }
 
 export function fileUrl(path) {
-  // 后端返回的 /api/files/... 相对路径补全成绝对地址
+  // 后端返回的 /api/files/... 相对路径补全成绝对地址。
+  // <img>/<a> 带不了 Authorization header，所以拼 ?token= query（后端 files.py 同时认两者）
   if (!path) return null;
-  return API_BASE + path;
+  const token = getToken();
+  const sep = path.includes("?") ? "&" : "?";
+  return API_BASE + path + (token ? `${sep}token=${encodeURIComponent(token)}` : "");
 }
 
 export const api = {
@@ -83,11 +109,15 @@ export const api = {
       method: "POST",
     }),
   previewLong: async (pid, options, signal) => {
+    const token = getToken();
     const res = await fetch(
       `${API_BASE}/api/projects/${encodeURIComponent(pid)}/long-preview`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(options),
         signal,
       },
@@ -96,7 +126,14 @@ export const api = {
       const data = await res.json();
       throw new Error(data.detail || "长图预览失败");
     }
-    return res.blob();
+    const blob = await res.blob();
+    const header = res.headers.get("X-Long-Layout");
+    if (header) {
+      try {
+        blob.longLayout = JSON.parse(decodeURIComponent(header));
+      } catch { /* header is best-effort */ }
+    }
+    return blob;
   },
 };
 

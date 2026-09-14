@@ -396,7 +396,7 @@ export default function DecorationEditor({ pid, project, busy, onSave }) {
                       const renderY = (item.y + item.height / 2) * scale;
                       return <KonvaImage key={item.id} ref={(node) => { if (node) nodeRefs.current[item.id] = node; }} image={image} x={renderX} y={renderY} offsetX={item.width * scale / 2} offsetY={item.height * scale / 2} width={item.width * scale} height={item.height * scale} rotation={item.rotation} opacity={item.opacity} scaleX={item.flip_x ? -1 : 1} scaleY={item.flip_y ? -1 : 1} draggable={!busy} onClick={() => setSelectedId(item.id)} onTap={() => setSelectedId(item.id)} onDragEnd={(event) => handleDragEnd(event, item)} onTransformEnd={() => handleTransformEnd(item)} />;
                     })}
-                    <Transformer ref={transformerRef} rotateEnabled enabledAnchors={["top-left", "top-right", "bottom-left", "bottom-right"]} boundBoxFunc={(oldBox, newBox) => newBox.width < 24 * scale || newBox.height < 24 * scale || newBox.width > 1800 * scale || newBox.height > 1800 * scale ? oldBox : newBox} anchorSize={8} borderStroke="#2b7062" anchorStroke="#2b7062" anchorFill="#fff" />
+                    <Transformer ref={transformerRef} rotateEnabled enabledAnchors={["top-left", "top-center", "top-right", "middle-left", "middle-right", "bottom-left", "bottom-center", "bottom-right"]} boundBoxFunc={(oldBox, newBox) => newBox.width < 24 * scale || newBox.height < 24 * scale || newBox.width > 1800 * scale || newBox.height > 1800 * scale ? oldBox : newBox} anchorSize={8} borderStroke="#2b7062" anchorStroke="#2b7062" anchorFill="#fff" />
                   </Layer>
                 </Stage>
               </div>

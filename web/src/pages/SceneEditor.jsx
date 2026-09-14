@@ -169,6 +169,12 @@ export default function SceneEditor() {
     stopRef = useRef(null);
   const selection = useBubbleSelection({bubbles,setBubbles,bubbleRefs,textRefs,setDirty});
   const {selected,setSelected} = selection;
+  // Right-click context menu + floating delete button (bubble/text only).
+  const [ctxMenu, setCtxMenu] = useState(null); // {x, y, kind} kind: 'canvas' | 'element'
+  const [insertPicker, setInsertPicker] = useState(null); // 'bubble' | 'text' | null
+  const deleteBtnRef = useRef(null);
+  const [deletePos, setDeletePos] = useState(null); // {x, y} in wrap coords
+  const [insertFontOpen, setInsertFontOpen] = useState(false);
   async function load() {
     const data = await api.getProject(pid),
       scene = data.scenes.find((s) => s.scene_id === sid),
@@ -324,13 +330,57 @@ export default function SceneEditor() {
     orderedLayers.forEach(id => nodes[id]?.moveToTop());
   }, [JSON.stringify(orderedLayers), transparent, fontsReady, bg, bubbles, captionLayout, overlays]);
   function changeSubject(patch) {setSubjectLayout({...subjectBox,...patch});setDirty(true);}
-  function moveLayer(direction) {
+  function moveLayerEdge(edge) { // 'top' | 'up' | 'down' | 'bottom'
     const list = [...orderedLayers], index = list.indexOf(selected);
     if (index < 0) return;
-    const target = Math.max(0,Math.min(list.length-1,index+direction));
-    [list[index],list[target]]=[list[target],list[index]];
+    const id = list.splice(index, 1)[0];
+    if (edge === 'top') list.push(id);
+    else if (edge === 'bottom') list.unshift(id);
+    else {
+      const target = edge === 'up' ? Math.min(list.length, index + 1) : Math.max(0, index - 1);
+      list.splice(target, 0, id);
+    }
     setLayerOrder(list);setDirty(true);
   }
+  // Apply one font size (and font) to every dialogue text in this scene.
+  function applyFontToAll() {
+    if (!selectedBubble) return;
+    const size = selectedBubble.font_size;
+    const fontId = selectedBubble.font_id || selectedBubble.font_family || null;
+    setDirty(true);
+    setBubbles(list => list.map(b => ({ ...b, font_size: size,
+      font_id: fontId, font_family: fontId || b.font_family, geometry: undefined })));
+    setNotice(`已将本格全部文字统一为 ${size}px`);
+  }
+  function openContextMenu(e, kind) {
+    e.evt.preventDefault();
+    e.evt.stopPropagation();
+    const stageBox = wrapRef.current?.getBoundingClientRect();
+    if (!stageBox) return;
+    setCtxMenu({
+      x: e.evt.clientX - stageBox.left,
+      y: e.evt.clientY - stageBox.top,
+      clientX: e.evt.clientX, clientY: e.evt.clientY,
+      kind,
+    });
+  }
+  function closeCtx() { setCtxMenu(null); }
+  // Position the floating delete button at the top-right of the current selection.
+  useEffect(() => {
+    if (!selected || !wrapRef.current) { setDeletePos(null); return; }
+    const isBubbleOrText = selected.startsWith?.('text:') || bubbleRefs.current[selected];
+    const isOverlayOrInset = selected.startsWith?.('overlay:') || selected === 'inset';
+    if (!isBubbleOrText && !isOverlayOrInset) { setDeletePos(null); return; }
+    const node = selected.startsWith?.('text:') ? textRefs.current[selected.slice(5)]
+      : selected.startsWith?.('overlay:') ? overlayRefs.current[selected.slice(8)]
+      : selected === 'inset' ? insetRef.current
+      : bubbleRefs.current[selected];
+    if (!node) { setDeletePos(null); return; }
+    // getClientRect(relativeTo container) already returns coordinates in the
+    // stage container's own pixel space, which fills the wrap box 1:1.
+    const r = node.getClientRect({ relativeTo: stageRef.current?.container() });
+    setDeletePos({ x: r.x + r.width, y: r.y });
+  }, [JSON.stringify(selection.ids), selected, bubbles, overlays, inset, subjectLayout, scale]);
   const selectedBubble = bubbles.find((b) => b.bubble_id === (selected?.startsWith("text:") ? selected.slice(5) : selected));
   const selectedGeometry = selectedBubble ? bubbleGeometry(selectedBubble) : null;
   const sceneIndex = project?.scenes.findIndex(s => s.scene_id === sid) ?? 0;
@@ -469,19 +519,6 @@ export default function SceneEditor() {
     if (!selectedOverlay) return;
     setOverlays((list) => list.filter((item) => overlayId(item) !== overlayId(selectedOverlay)));
     setSelected(null);
-    setDirty(true);
-  }
-  function moveOverlayLayer(direction) {
-    if (!selectedOverlay) return;
-    const id = overlayId(selectedOverlay);
-    setOverlays((list) => {
-      const ordered = [...list].sort((a, b) => (a.z_index || 0) - (b.z_index || 0));
-      const index = ordered.findIndex((item) => overlayId(item) === id);
-      const target = direction > 0 ? Math.min(ordered.length - 1, index + 1) : Math.max(0, index - 1);
-      if (index === target) return list;
-      [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
-      return ordered.map((item, i) => ({ ...item, z_index: i }));
-    });
     setDirty(true);
   }
   async function generateScreenInset() {
@@ -722,7 +759,28 @@ export default function SceneEditor() {
             scaleX={scale}
             scaleY={scale}
             onMouseDown={(e) => {
-              if (e.target === e.target.getStage()) setSelected(null);
+              if (e.target === e.target.getStage()) { setSelected(null); closeCtx(); setInsertPicker(null); }
+            }}
+            onContextMenu={(e) => {
+              // e.target is the innermost hit shape (no name); walk up the
+              // ancestor chain to find the named interactive node.
+              let node = e.target, name = "";
+              while (node && node !== stageRef.current) {
+                name = node.name?.() || "";
+                if (name) break;
+                node = node.getParent();
+              }
+              const map = { "screen-inset": "inset", caption: "caption", subject: "subject" };
+              const selId = name.startsWith("bubble-") ? name.slice(7)
+                : name.startsWith("text-") ? `text:${name.slice(5)}`
+                : name.startsWith("overlay-") ? `overlay:${name.slice(8)}`
+                : map[name];
+              if (!selId) { openContextMenu(e, "canvas"); return; }
+              // Right-click selects what was clicked (Shift keeps multi-select)
+              // so 顶层/底层/组合/删除 all target the correct element.
+              if (e.evt.shiftKey) selection.select(selId, e);
+              else if (!selection.ids.includes(selId)) setSelected(selId);
+              openContextMenu(e, "element");
             }}
           >
             <Layer listening={false}>
@@ -738,7 +796,7 @@ export default function SceneEditor() {
               )}
             </Layer>
             <Layer>
-              {transparent && bg && <KonvaImage ref={subjectRef} image={bg} {...subjectBox} draggable={!busy}
+              {transparent && bg && <KonvaImage ref={subjectRef} name="subject" image={bg} {...subjectBox} draggable={!busy}
                 onClick={() => setSelected("subject")} onTap={() => setSelected("subject")}
                 onDragStart={() => setSelected("subject")}
                 onDragEnd={e=>changeSubject({x:e.target.x(),y:e.target.y()})}
@@ -878,53 +936,98 @@ export default function SceneEditor() {
               />
             </Layer>
           </Stage>
+          {deletePos && !busy && (
+            <button
+              ref={deleteBtnRef}
+              type="button"
+              className="floating-delete"
+              style={{ left: deletePos.x, top: deletePos.y }}
+              title="删除选中元素"
+              onClick={() => {
+                if (selected?.startsWith('overlay:')) removeSelectedOverlay();
+                else if (selected === 'inset') changeInset(null);
+                else selection.remove();
+                setDeletePos(null);
+              }}
+            >✕</button>
+          )}
+          {ctxMenu && (
+            <ContextMenu
+              pos={ctxMenu}
+              canGroup={selection.canGroup}
+              canUngroup={selection.canUngroup}
+              canRemove={selection.canRemove || selected?.startsWith('overlay:') || selected === 'inset'}
+              isElement={ctxMenu.kind === 'element'}
+              bubblesFull={bubbles.length >= 20}
+              onClose={closeCtx}
+              onAdd={(kind) => { addTextElement(kind); closeCtx(); }}
+              onGroup={() => { selection.group(); closeCtx(); }}
+              onUngroup={() => { selection.ungroup(); closeCtx(); }}
+              onLayer={(edge) => { moveLayerEdge(edge); closeCtx(); }}
+              onDelete={() => {
+                if (selected?.startsWith('overlay:')) removeSelectedOverlay();
+                else if (selected === 'inset') changeInset(null);
+                else selection.remove();
+                closeCtx();
+              }}
+            />
+          )}
         </div>
         <aside className="card bubble-inspector">
-          <section className="element-tools" aria-label="文字与气泡编辑">
-            <h2>文字与气泡</h2>
-            <div className="form-row">
-              <button type="button" disabled={busy || bubbles.length>=20} onClick={()=>addTextElement("text")}>添加文字框</button>
-              <button type="button" disabled={busy || bubbles.length>=20} onClick={()=>addTextElement("bubble")}>添加气泡</button>
-              <button type="button" disabled={busy || bubbles.length>=20} onClick={()=>addTextElement("both")}>添加文字和气泡</button>
-            </div>
-            <p className="muted">按住 Shift 点击文字或气泡可多选，拖动任意选中元素即可一起移动。组合后单击即可选中整组。</p>
-            <div className="form-row">
-              <button type="button" disabled={busy || !selection.canGroup} onClick={selection.group}>组合</button>
-              <button type="button" disabled={busy || !selection.canUngroup} onClick={selection.ungroup}>取消组合</button>
-              <button type="button" disabled={busy || !selection.canRemove} onClick={selection.remove}>删除选中元素</button>
-            </div>
-            {selection.ids.length>1 && <p className="muted" role="status">已选中 {selection.ids.length} 个元素，可一起拖动</p>}
-          </section>
-          {<section>
-            <h2>主体与图层</h2>
-            {transparent && <button type="button" disabled={busy} onClick={()=>setSelected("subject")}>选择主体图片</button>}
-            <p className="muted">图层列表由底到顶。气泡和文字可分别调整层级；透明主体还可以移动和缩放。</p>
-            <select aria-label="选择图层" value={selected || ""} onChange={e=>setSelected(e.target.value)}>
-              <option value="">选择图层</option>
-              {orderedLayers.filter(id=>id!=="inset" || inset).map(id=><option key={id} value={id}>{id==="subject"?"主体图片":id==="caption"?"旁白":id.startsWith("text:")?`对话文字 ${id.slice(5)}`:id.startsWith("overlay:")?"贴图":id==="inset"?"屏幕特写":`气泡 ${id}`}</option>)}
-            </select>
-            <button type="button" disabled={busy || !selected} onClick={()=>moveLayer(-1)}>下移一层</button>
-            <button type="button" disabled={busy || !selected} onClick={()=>moveLayer(1)}>上移一层</button>
-            {transparent && <button type="button" disabled={busy} onClick={()=>{setSubjectLayout(null);setDirty(true);}}>还原主体大小与位置</button>}
-          </section>}
-          <p className="muted">选中文字后拖左右手柄调整宽度并自动换行；字号在下方单独调整。</p>
-          <h2>气泡库</h2>
-          <label>
-            当前对话
-            <select
-              value={selectedBubble?.bubble_id || ""}
-              disabled={busy}
-              onChange={(e) => {const b=bubbles.find(b=>b.bubble_id===e.target.value);setSelected(b?.bubble_visible===false?`text:${b.bubble_id}`:e.target.value);}}
-            >
-              <option value="">选择气泡</option>
-              {bubbles.map((b, i) => (
-                <option key={b.bubble_id} value={b.bubble_id}>
-                  对话 {i + 1}
-                </option>
-              ))}
-            </select>
-          </label>
-          {selectedBubble ? (
+          {!selected && (
+            <section className="insert-panel" aria-label="插入文字或气泡">
+              <h2>插入到画布</h2>
+              <button type="button" className="insert-big bubble-insert" disabled={busy || bubbles.length>=20}
+                onClick={()=>setInsertPicker(insertPicker==='bubble'?null:'bubble')}>
+                💬 插入新气泡
+              </button>
+              {insertPicker==='bubble' && (
+                <div className="insert-variant-grid">
+                  {BUBBLE_TYPES.map(t=>(
+                    <button key={t.id} type="button" disabled={busy||(t.asset_prefix && !(bubbleAvailability[t.id]||[]).length)}
+                      onClick={()=>{addTextElement('bubble'); setInsertPicker(null);}}>
+                      <img alt="" src={t.asset_prefix ? `/bubble-references/${t.asset_prefix}${t.reference_ext || '.jpg'}` : `data:image/svg+xml,${encodeURIComponent(bubbleSvg({type:t.id,text:'',x:0,y:0,width:240,body_height:150,font_size:28}).svg)}`}/>
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button type="button" className="insert-big text-insert" disabled={busy || bubbles.length>=20}
+                onClick={()=>{addTextElement('text');}}>
+                🔤 插入新文字
+              </button>
+              <p className="muted">也可在画布上点右键快速添加；选中元素后右上角有 ✕ 删除。</p>
+            </section>
+          )}
+          {selected && selected !== 'caption' && (
+            <section className="selection-hint">
+              <button type="button" className="link" onClick={()=>{setSelected(null);setInsertPicker(null);}}>✕ 取消选择</button>
+              {selection.ids.length>1 && <span className="muted">已选 {selection.ids.length} 个，右键可组合</span>}
+            </section>
+          )}
+          {selectedBubble && selected?.startsWith('text:') ? (
+            /* Only text selected: keep it minimal — content, font, size, one-click apply-all. */
+            <section className="text-edit-panel">
+              <h2>对话文字</h2>
+              <label>文字内容
+                <textarea ref={textRef} rows={3} value={selectedBubble.text} maxLength={500} disabled={busy}
+                  onChange={e=>update(selected,{text:e.target.value})}/>
+              </label>
+              <label>字体
+                <select value={selectedBubble.font_id || selectedBubble.font_family || "system"} disabled={busy || !fontsReady}
+                  onChange={(e) => update(selected, { font_id: e.target.value === "system" ? null : e.target.value, font_family: e.target.value })}>
+                  <option value="system">系统默认（微软雅黑）</option>
+                  {FONT_SPECS.map((font) => <option key={font.id} value={font.id} disabled={!installedFontIds.has(font.id)}>{font.name}{installedFontIds.has(font.id) ? "" : " · 待导入"}</option>)}
+                </select>
+              </label>
+              <label>字号：{selectedBubble.font_size}px
+                <input type="range" min="18" max="72" step="2" value={selectedBubble.font_size} disabled={busy}
+                  onChange={(e) => update(selected, { font_size: Number(e.target.value) })} />
+              </label>
+              <button type="button" className="apply-all-btn" disabled={busy} onClick={applyFontToAll}>✨ 一键全适配 · 统一整格字号字体</button>
+              <p className="muted">点气泡轮廓可改气泡样式；拖文字框左右手柄可换行。</p>
+            </section>
+          ) : selectedBubble ? (
             <>
               <div className="form-row object-mode">
                 <button disabled={selectedBubble.bubble_visible===false} aria-pressed={selected === selectedBubble.bubble_id} onClick={() => selection.selectOnly(selectedBubble.bubble_id)}>气泡轮廓</button>
@@ -1100,40 +1203,46 @@ export default function SceneEditor() {
               </label>)}
               <p className="muted">尾巴固定在气泡上，随整个气泡一起移动、旋转和翻转。</p>
             </>
-          ) : (
-            <p className="muted">点击画布中的气泡，或从上方选择对话。</p>
+          ) : null}
+          {selectedOverlay && (
+            <div className="sticker-controls">
+              <p><b>{selectedOverlay.name || "当前贴图"}</b></p>
+              <label>
+                透明度：{Math.round((selectedOverlay.opacity ?? 1) * 100)}%
+                <input type="range" min="0.1" max="1" step="0.05" value={selectedOverlay.opacity ?? 1} disabled={busy || assetBusy} onChange={(e) => updateOverlay(overlayId(selectedOverlay), { opacity: Number(e.target.value) })} />
+              </label>
+              <label>
+                旋转：{selectedOverlay.rotation || 0}°
+                <input type="range" min="-180" max="180" step="1" value={selectedOverlay.rotation || 0} disabled={busy || assetBusy} onChange={(e) => updateOverlay(overlayId(selectedOverlay), { rotation: Number(e.target.value) })} />
+              </label>
+              <div className="form-row sticker-actions">
+                <button type="button" disabled={busy || assetBusy} onClick={() => updateOverlay(overlayId(selectedOverlay), { flip_x: !selectedOverlay.flip_x })}>水平翻转</button>
+                <button type="button" disabled={busy || assetBusy} onClick={() => updateOverlay(overlayId(selectedOverlay), { flip_y: !selectedOverlay.flip_y })}>垂直翻转</button>
+              </div>
+              <div className="form-row sticker-actions">
+                <button type="button" disabled={busy || assetBusy} onClick={() => moveLayerEdge('down')}>下移一层</button>
+                <button type="button" disabled={busy || assetBusy} onClick={() => moveLayerEdge('up')}>上移一层</button>
+                <button type="button" disabled={busy || assetBusy} onClick={removeSelectedOverlay}>删除图层</button>
+              </div>
+              <p className="muted">在画布上拖动、缩放四角，旋转手柄可调整角度；右键可调层级。</p>
+            </div>
           )}
-          <details className="font-library">
-            <summary>字体库（{FONT_SPECS.length} 款字体）</summary>
-            <p className="muted">内置字体可直接选择，所有项目共用。也可上传字体替换当前项目中的同名选项。</p>
+          <details className="font-import-link">
+            <summary>导入自定义字体</summary>
+            <p className="muted">选一个要替换的字体槽位，上传 TTF / OTF / TTC。</p>
             {FONT_SPECS.map((font) => {
               const installed = installedFontIds.has(font.id);
               return (
                 <label className="font-slot" key={font.id}>
                   <span>
                     <b>{font.name}</b>
-                    <small>
-                      {!installed
-                        ? "待导入"
-                        : browserFontState.get(font.id)?.browser_error
-                          ? "已导入 · 画布回退"
-                          : browserFontState.get(font.id)?.installed?.source === "shared" ? "内置可用" : "已导入"}
-                    </small>
+                    <small>{!installed ? "待导入" : browserFontState.get(font.id)?.browser_error ? "已导入 · 画布回退" : browserFontState.get(font.id)?.installed?.source === "shared" ? "内置可用" : "已导入"}</small>
                   </span>
-                  {installed && browserFontState.get(font.id)?.browser_error && (
-                    <em title={browserFontState.get(font.id).browser_error}>浏览器回退</em>
-                  )}
-                  <input
-                    type="file"
-                    accept=".ttf,.otf,.ttc,font/ttf,font/otf,application/x-font-ttf"
-                    disabled={busy || assetBusy}
+                  <input type="file" accept=".ttf,.otf,.ttc,font/ttf,font/otf,application/x-font-ttf" disabled={busy || assetBusy}
                     onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      e.target.value = "";
+                      const file = e.target.files?.[0]; e.target.value = "";
                       if (!file) return;
-                      setAssetBusy(true);
-                      setFontsReady(false);
-                      setError("");
+                      setAssetBusy(true); setFontsReady(false); setError("");
                       try {
                         await uploadFont(pid, font.id, file);
                         const next = await loadProjectFonts(pid, [...JSON.parse(usedFontIds), font.id]);
@@ -1141,74 +1250,15 @@ export default function SceneEditor() {
                         setBubbles(items => items.map(b => b.font_id === font.id ? {...b, geometry: undefined} : b));
                         if (bubbles.some(b => b.font_id === font.id)) setDirty(true);
                         setFontsReady(true);
-                        setNotice(`${font.name} 已导入，点击“保存”后会更新当前分镜`);
-                      } catch (err) {
-                        setFontsReady(true);
-                        setError(err.message);
-                      } finally {
-                        setAssetBusy(false);
-                      }
-                    }}
-                  />
+                        setNotice(`${font.name} 已导入，点击“保存”后更新当前分镜`);
+                      } catch (err) { setFontsReady(true); setError(err.message); }
+                      finally { setAssetBusy(false); }
+                    }} />
                 </label>
               );
             })}
           </details>
-          <section className="sticker-panel">
-            <div className="inspector-section-title">
-              <h2>单格贴图</h2>
-              <span className="muted">可调整位置的官方形象或图标</span>
-            </div>
-            <label className="upload-button">
-              导入图片贴纸
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                disabled={busy || assetBusy}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  e.target.value = "";
-                  uploadOverlay(file);
-                }}
-              />
-            </label>
-            {assets.length > 0 && (
-              <div className="sticker-library">
-                {assets.map((asset) => (
-                  <button type="button" key={asset.asset_id || asset.id} disabled={busy || assetBusy} onClick={() => addExistingOverlay(asset)}>
-                    <img src={assetUrl(asset, pid)} alt="" />
-                    <span>{asset.filename || asset.name || "贴纸"}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            {selectedOverlay ? (
-              <div className="sticker-controls">
-                <p><b>{selectedOverlay.name || "当前贴图"}</b></p>
-                <label>
-                  透明度：{Math.round((selectedOverlay.opacity ?? 1) * 100)}%
-                  <input type="range" min="0.1" max="1" step="0.05" value={selectedOverlay.opacity ?? 1} disabled={busy || assetBusy} onChange={(e) => updateOverlay(overlayId(selectedOverlay), { opacity: Number(e.target.value) })} />
-                </label>
-                <label>
-                  旋转：{selectedOverlay.rotation || 0}°
-                  <input type="range" min="-180" max="180" step="1" value={selectedOverlay.rotation || 0} disabled={busy || assetBusy} onChange={(e) => updateOverlay(overlayId(selectedOverlay), { rotation: Number(e.target.value) })} />
-                </label>
-                <div className="form-row sticker-actions">
-                  <button type="button" disabled={busy || assetBusy} onClick={() => updateOverlay(overlayId(selectedOverlay), { flip_x: !selectedOverlay.flip_x })}>水平翻转</button>
-                  <button type="button" disabled={busy || assetBusy} onClick={() => updateOverlay(overlayId(selectedOverlay), { flip_y: !selectedOverlay.flip_y })}>垂直翻转</button>
-                </div>
-                <div className="form-row sticker-actions">
-                  <button type="button" disabled={busy || assetBusy} onClick={() => moveOverlayLayer(-1)}>下移一层</button>
-                  <button type="button" disabled={busy || assetBusy} onClick={() => moveOverlayLayer(1)}>上移一层</button>
-                  <button type="button" disabled={busy || assetBusy} onClick={removeSelectedOverlay}>删除图层</button>
-                </div>
-                <p className="muted">在画布上拖动、缩放四角，旋转手柄可调整角度。</p>
-              </div>
-            ) : (
-              <p className="muted">上传或点击素材后，再在画布中移动和调整。</p>
-            )}
-          </section>
-          <label>
+          <label className="caption-block">
             旁白
             <textarea
               value={caption}
@@ -1231,47 +1281,6 @@ export default function SceneEditor() {
             </select></label>
             <label>旁白字号<input type="range" min="18" max="72" value={capBox.font_size} disabled={busy} onChange={e => changeCaption({font_size:Number(e.target.value)})} /></label>
           </div>}
-          <section className="element-tools" aria-label="手机屏幕特写">
-            <h2>手机屏幕特写</h2>
-            <p className="muted">画面里有手机或屏幕时，可以单独生成一张屏幕特写叠加在分镜上；生成后在画布中拖动、缩放，也可以随时隐藏。</p>
-            <label>屏幕上显示什么
-              <textarea
-                rows={2}
-                maxLength={2000}
-                value={screenPrompt}
-                disabled={busy}
-                placeholder="例如：一条提醒「不要向陌生账户转账」的短信界面。"
-                onChange={(e) => setScreenPrompt(e.target.value)}
-              />
-            </label>
-            <button
-              disabled={busy || assetBusy || dirty || !screenPrompt.trim() || !scene.raw_url}
-              onClick={generateScreenInset}
-            >
-              {scene.screen_url ? "按新描述重新生成特写" : "生成屏幕特写"}
-            </button>
-            {dirty && <p className="muted">有未保存的修改，先保存再生成特写。</p>}
-            {scene.screen_url && (
-              <button
-                disabled={busy}
-                onClick={() =>
-                  changeInset(
-                    inset
-                      ? null
-                      : {
-                          asset: `screens/${sid}_screen.png`,
-                          x: 710,
-                          y: 50,
-                          width: 320,
-                          height: 480,
-                        },
-                  )
-                }
-              >
-                {inset ? "隐藏屏幕特写" : "显示屏幕特写"}
-              </button>
-            )}
-          </section>
         </aside>
       </div>
       <div className="editor-save-bar">
@@ -1288,6 +1297,57 @@ export default function SceneEditor() {
             alt="已保存单格"
           />
         </details>
+      )}
+    </div>
+  );
+}
+
+/* ---- Right-click context menu (PPT-style, with submenu) ---- */
+function ContextMenu({ pos, isElement, canGroup, canUngroup, canRemove, bubblesFull, onClose, onAdd, onGroup, onUngroup, onLayer, onDelete }) {
+  const [sub, setSub] = useState(null); // 'add' | 'top' | 'bottom'
+  useEffect(() => {
+    const close = (e) => { if (!e.target.closest?.('.ctx-menu')) onClose(); };
+    window.addEventListener('pointerdown', close);
+    window.addEventListener('blur', onClose);
+    return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('blur', onClose); };
+  }, [onClose]);
+  return (
+    <div className="ctx-menu" style={{ left: pos.x, top: pos.y }} onContextMenu={e => e.preventDefault()}>
+      {!isElement ? (
+        <div className="ctx-item ctx-parent" onMouseEnter={() => setSub('add')} onClick={() => setSub(sub === 'add' ? null : 'add')}>
+          添加 <span className="ctx-arrow">▸</span>
+          {sub === 'add' && (
+            <div className="ctx-sub">
+              <button type="button" disabled={bubblesFull} onClick={() => onAdd('text')}>添加文字框</button>
+              <button type="button" disabled={bubblesFull} onClick={() => onAdd('bubble')}>添加气泡</button>
+              <button type="button" disabled={bubblesFull} onClick={() => onAdd('both')}>添加文字和气泡</button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="ctx-item ctx-parent" onMouseEnter={() => setSub('top')}>
+            置于顶层 <span className="ctx-arrow">▸</span>
+            {sub === 'top' && (
+              <div className="ctx-sub">
+                <button type="button" onClick={() => onLayer('top')}>置于顶层</button>
+                <button type="button" onClick={() => onLayer('up')}>上移一层</button>
+              </div>
+            )}
+          </div>
+          <div className="ctx-item ctx-parent" onMouseEnter={() => setSub('bottom')}>
+            置于底层 <span className="ctx-arrow">▸</span>
+            {sub === 'bottom' && (
+              <div className="ctx-sub">
+                <button type="button" onClick={() => onLayer('bottom')}>置于底层</button>
+                <button type="button" onClick={() => onLayer('down')}>下移一层</button>
+              </div>
+            )}
+          </div>
+          {canGroup && <button type="button" className="ctx-item" onClick={onGroup}>组合</button>}
+          {canUngroup && <button type="button" className="ctx-item" onClick={onUngroup}>取消组合</button>}
+          {canRemove && <button type="button" className="ctx-item ctx-danger" onClick={onDelete}>删除</button>}
+        </>
       )}
     </div>
   );

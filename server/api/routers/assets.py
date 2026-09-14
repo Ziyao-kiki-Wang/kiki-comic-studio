@@ -6,12 +6,14 @@ import urllib.parse
 import base64
 import uuid
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from server import store
 from server.api import tasks
+from server.api.deps import get_owned_project
+from server.core.security import verify_token
 from server.services import assets
 from server.services import image_gen
 
@@ -61,11 +63,21 @@ class AssetGenerateIn(BaseModel):
 
 
 @router.post("/{pid}/assets/generate", status_code=202)
-def generate_asset(pid: str, body: AssetGenerateIn):
+def generate_asset(
+    body: AssetGenerateIn,
+    pid: str = Depends(get_owned_project),
+    people_id: int = Depends(verify_token),
+):
     _editable(pid)
     store.project_dir(pid)
     if not body.prompt.strip():
         raise HTTPException(422, "请填写图片生成要求")
+    # 余额闸门：AI 素材生成也消耗生图额度
+    from server.services import billing
+    if not billing.check_balance(people_id, min_points=1.0):
+        raise HTTPException(
+            402, {"code": "INSUFFICIENT_POINTS", "message": "积分不足，请联系管理员充值"}
+        )
     try:
         references = [assets.asset_path(pid, asset_id) for asset_id in body.reference_asset_ids]
     except (ValueError, FileNotFoundError) as exc:
@@ -92,7 +104,7 @@ def generate_asset(pid: str, body: AssetGenerateIn):
             return {"asset": _asset_payload(pid, record)}
         finally:
             temporary.unlink(missing_ok=True)
-    task = tasks.submit("generate_asset", pid, body.model_dump(), run)
+    task = tasks.submit("generate_asset", pid, body.model_dump(), run, people_id=people_id)
     return {"task_id": task.task_id}
 
 
@@ -137,7 +149,7 @@ def _asset_usage(project_id: str, asset_id: str) -> list[str]:
 
 
 @router.get("/{pid}/assets")
-def list_assets(pid: str, kind: str | None = None):
+def list_assets(pid: str = Depends(get_owned_project), kind: str | None = None):
     store.project_dir(pid)
     try:
         records = assets.project_assets(pid, kind)
@@ -150,7 +162,7 @@ def list_assets(pid: str, kind: str | None = None):
 
 
 @router.post("/{pid}/assets", status_code=201)
-def upload_asset(pid: str, body: AssetUploadIn):
+def upload_asset(body: AssetUploadIn, pid: str = Depends(get_owned_project)):
     _editable(pid)
     store.project_dir(pid)
     if body.scene_id is not None:
@@ -172,7 +184,7 @@ def upload_asset(pid: str, body: AssetUploadIn):
 
 
 @router.delete("/{pid}/assets/{asset_id}")
-def remove_asset(pid: str, asset_id: str):
+def remove_asset(asset_id: str, pid: str = Depends(get_owned_project)):
     _editable(pid)
     store.project_dir(pid)
     usage = _asset_usage(pid, asset_id)
@@ -186,13 +198,13 @@ def remove_asset(pid: str, asset_id: str):
 
 
 @router.get("/{pid}/fonts")
-def list_fonts(pid: str):
+def list_fonts(pid: str = Depends(get_owned_project)):
     store.project_dir(pid)
     return {"fonts": assets.project_fonts(pid)}
 
 
 @router.post("/{pid}/fonts/{font_id}", status_code=201)
-def upload_font(pid: str, font_id: str, body: FontUploadIn):
+def upload_font(font_id: str, body: FontUploadIn, pid: str = Depends(get_owned_project)):
     _editable(pid)
     store.project_dir(pid)
     data = body.font_data or body.image_data
@@ -206,7 +218,7 @@ def upload_font(pid: str, font_id: str, body: FontUploadIn):
 
 
 @router.get("/{pid}/fonts/{font_id}/file")
-def get_font_file(pid: str, font_id: str):
+def get_font_file(font_id: str, pid: str = Depends(get_owned_project)):
     store.project_dir(pid)
     try:
         path = assets.font_path(pid, font_id)
@@ -219,7 +231,7 @@ def get_font_file(pid: str, font_id: str):
 
 
 @router.get("/{pid}/scenes/{scene_id}/references")
-def list_scene_references(pid: str, scene_id: str):
+def list_scene_references(scene_id: str, pid: str = Depends(get_owned_project)):
     _, scene = _scene(pid, scene_id)
     result = []
     for item in scene.get("reference_assets", []):
@@ -232,7 +244,7 @@ def list_scene_references(pid: str, scene_id: str):
 
 
 @router.put("/{pid}/scenes/{scene_id}/references")
-def update_scene_references(pid: str, scene_id: str, body: SceneReferencesIn):
+def update_scene_references(scene_id: str, body: SceneReferencesIn, pid: str = Depends(get_owned_project)):
     _editable(pid)
     sb, scene = _scene(pid, scene_id)
     character_ids = set(scene.get("characters", []))
@@ -270,15 +282,15 @@ def update_scene_references(pid: str, scene_id: str, body: SceneReferencesIn):
 
 
 @router.post("/{pid}/scenes/{scene_id}/references", status_code=201)
-def upload_scene_reference(pid: str, scene_id: str, body: AssetUploadIn):
+def upload_scene_reference(scene_id: str, body: AssetUploadIn, pid: str = Depends(get_owned_project)):
     """Convenience endpoint: upload and append one scene-local reference."""
     _editable(pid)
     _scene(pid, scene_id)
     record = upload_asset(
-        pid,
         body.model_copy(update={"kind": "scene_reference", "scene_id": scene_id}),
+        pid=pid,
     )["asset"]
-    current = list_scene_references(pid, scene_id)["references"]
+    current = list_scene_references(scene_id, pid=pid)["references"]
     refs = [
         {
             "asset_id": item["asset_id"],
@@ -288,4 +300,4 @@ def upload_scene_reference(pid: str, scene_id: str, body: AssetUploadIn):
         for item in current
     ]
     refs.append({"asset_id": record["asset_id"], "mode": "append"})
-    return update_scene_references(pid, scene_id, SceneReferencesIn(references=refs))
+    return update_scene_references(scene_id, SceneReferencesIn(references=refs), pid=pid)

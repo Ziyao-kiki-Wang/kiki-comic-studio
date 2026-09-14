@@ -106,6 +106,15 @@ def _save_result(result, path: Path, *, require_transparency: bool = False):
         temp.unlink(missing_ok=True)
 
 
+def _record_image():
+    """生图计费：计一张图到当前任务线程的计量器。失败静默不阻断。"""
+    try:
+        from server.services import billing
+        billing.record_image(1)
+    except Exception:
+        pass
+
+
 def _is_moderation(err: Exception) -> bool:
     """识别审核拦截：英文 moderation_blocked 或中文"防护限制/违反"提示。"""
     if not isinstance(err, BadRequestError):
@@ -128,6 +137,7 @@ def generate(
         if _is_moderation(e):
             raise ModerationBlocked(str(e)) from e
         raise
+    _record_image()  # 计费：成功返回后计一张
     _save_result(result, path, require_transparency=background == "transparent")
 
 
@@ -152,6 +162,7 @@ def edit(
             model=IMAGE_MODEL, image=handles, prompt=prompt, size=size,
             background=background, output_format="png",
         )
+        _record_image()  # 计费：成功返回后计一张
         _save_result(result, path, require_transparency=background == "transparent")
     except BadRequestError as e:
         if not _is_moderation(e):

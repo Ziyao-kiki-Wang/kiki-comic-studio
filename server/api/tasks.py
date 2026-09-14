@@ -35,6 +35,7 @@ class Task:
     logs: list[str] = field(default_factory=list)
     error: str | None = None
     result: dict | None = None
+    people_id: int | None = None  # 计费归属（生成任务带，用于收尾扣费）
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -122,9 +123,19 @@ class _LogWriter:
             self.buf = ""
 
 
-def submit(kind: str, project_id: str, detail: dict, fn: Callable[[], None]) -> Task:
+def submit(
+    kind: str,
+    project_id: str,
+    detail: dict,
+    fn: Callable[[], None],
+    people_id: int | None = None,
+) -> Task:
     t = Task(
-        task_id=uuid.uuid4().hex[:12], kind=kind, project_id=project_id, detail=detail
+        task_id=uuid.uuid4().hex[:12],
+        kind=kind,
+        project_id=project_id,
+        detail=detail,
+        people_id=int(people_id) if people_id is not None else None,
     )
     with _guard:
         _tasks[t.task_id] = t
@@ -133,7 +144,31 @@ def submit(kind: str, project_id: str, detail: dict, fn: Callable[[], None]) -> 
     return t
 
 
+def _settle(t: Task):
+    """任务结束：若带 people_id 且计费面有消耗，单事务扣积分 + 写流水。
+
+    只在生成类任务里才计费（kind in 生成/素材）。读库失败静默——
+    计费故障不能反过来打断已完成的生成。
+    """
+    if t.people_id is None:
+        return
+    try:
+        from server.services import billing
+        usage = billing.current_usage()
+        deducted = billing.settle_task_usage(
+            t.people_id, usage,
+            project_id=t.project_id,
+            action=t.detail.get("action", t.kind),
+        )
+        if deducted:
+            print(f"[计费] 本次消耗 {deducted} 积分（token={usage['tokens']} 图={usage['images']}）")
+    except Exception as e:
+        print(f"[计费] 结算失败（不阻断任务）：{e}")
+
+
 def _run(t: Task, fn: Callable[[], None]):
+    from server.services import billing
+    billing.reset_meter()  # 任务线程的计量器清零
     with _exec_lock:
         _set(t, "running")
         try:
@@ -153,3 +188,5 @@ def _run(t: Task, fn: Callable[[], None]):
             _set(t, "failed", error=last)
         else:
             _set(t, "done")
+        finally:
+            _settle(t)  # 不管成败都结算已发生的消耗（失败的也消耗了 API）

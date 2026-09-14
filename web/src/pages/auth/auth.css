@@ -1,0 +1,169 @@
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #faf8f4;
+  padding: 24px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 40px 36px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+.auth-title {
+  font-size: 26px;
+  font-weight: 600;
+  text-align: center;
+  margin: 0 0 4px;
+}
+
+.auth-subtitle {
+  text-align: center;
+  color: #999;
+  font-size: 13px;
+  margin: 0 0 28px;
+}
+
+.auth-form label {
+  display: block;
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 16px;
+}
+
+.auth-form input {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid #e0dcd4;
+  border-radius: 8px;
+  font-size: 15px;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.auth-form input:focus {
+  outline: none;
+  border-color: #b5a98f;
+}
+
+.captcha-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.captcha-row input {
+  flex: 1;
+}
+
+.captcha-img {
+  height: 42px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid #e0dcd4;
+  flex-shrink: 0;
+}
+
+.captcha-loading {
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid #e0dcd4;
+  background: #f5f2ec;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.auth-error {
+  color: #c0392b;
+  font-size: 13px;
+  margin: -4px 0 12px;
+  padding: 8px 10px;
+  background: #fdf2f0;
+  border-radius: 6px;
+}
+
+.auth-submit {
+  width: 100%;
+  padding: 12px;
+  background: #2c2a26;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.auth-submit:hover:not(:disabled) {
+  background: #484540;
+}
+
+.auth-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-footer {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 13px;
+  color: #666;
+}
+
+.auth-footer a {
+  color: #b5a98f;
+  text-decoration: none;
+}
+
+/* ===== Profile ===== */
+.profile-section {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f0ece4;
+}
+.profile-section:last-child { border-bottom: none; }
+.profile-section h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+.profile-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  padding: 6px 0;
+  color: #555;
+}
+.points-badge { color: #b8860b; font-size: 16px; }
+.profile-hint { font-size: 13px; color: #999; margin: 4px 0 10px; }
+.invite-code-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #f7f4ee;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+.invite-code-row code { font-size: 16px; letter-spacing: 1px; font-weight: 600; }
+.invite-code-row button {
+  border: 1px solid #d8d2c6;
+  background: #fff;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.points-table { width: 100%; font-size: 13px; border-collapse: collapse; }
+.points-table td { padding: 7px 4px; border-bottom: 1px solid #f5f1ea; }
+.points-table .pos { color: #27ae60; }
+.points-table .neg { color: #c0392b; }
+.points-table .time { color: #aaa; font-size: 12px; }

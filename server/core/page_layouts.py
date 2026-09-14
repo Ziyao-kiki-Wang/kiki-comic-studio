@@ -64,7 +64,7 @@ def prepare_pages(sources, settings, theme, project_id, width=1080):
             cap_y = heading_y+heading_h if photo_first else frame[1]+frame_h+18
             caption_xy = (padding, cap_y)
             height = max(frame[1]+frame_h, heading_y+badge["height"], cap_y+caption_h) + padding
-        return {"scene": scene, "panel": panel, "width": tile_width, "height": height,
+        return {"scene": scene, "panel": panel, "meta": source.get("meta", {}), "width": tile_width, "height": height,
                 "frame": frame, "picture_size": picture_size, "heading": badge, "heading_text": text,
                 "heading_align": heading_options["align"], "heading_box": heading_box,
                 "caption": caption_lines, "caption_xy": caption_xy, "font": font, "step": step, "index": index}
@@ -92,7 +92,8 @@ def prepare_pages(sources, settings, theme, project_id, width=1080):
             e["gap_after"] = gap
         entries.extend(row)
         y += row_h+gap
-    return {"entries": entries, "height": y, "kind": kind, "accent": accent, "tracking": tracking}
+    return {"entries": entries, "height": y, "kind": kind, "accent": accent, "tracking": tracking,
+            "caption_align": settings.get("caption_align", "center")}
 
 
 def draw_backdrop(canvas, header_h, theme, accent):
@@ -158,13 +159,20 @@ def paint_pages(canvas, plan, top, write):
         if badge["image"]:
             paste_image(canvas,badge["image"],(round(x+hx),round(y+hy)))
         cap_x, cap_y = e["caption_xy"]
+        cap_align = plan.get("caption_align", "center")
+        cap_anchor = {"left": "lt", "center": "mt", "right": "rt"}.get(cap_align, "lt")
+        cap_w = e["heading_box"][2]
+        cap_tx = x + cap_x if cap_align == "left" else (x + cap_x + cap_w if cap_align == "right" else x + cap_x + cap_w / 2)
         for i, line in enumerate(e["caption"]):
-            write(draw,(x+cap_x,y+cap_y+i*e["step"]),line,font=e["font"],fill="#edf0ed" if kind == "filmstrip" else "#424a49")
+            write(draw,(cap_tx,y+cap_y+i*e["step"]),line,font=e["font"],fill="#edf0ed" if kind == "filmstrip" else "#424a49",anchor=cap_anchor)
         if kind == "editorial_mix" and badge["image"]:
             draw.line((x+e["heading_box"][0],y+hy-16,x+e["heading_box"][0]+48,y+hy-16),fill=accent,width=3)
         boxes.append({"scene_id":e["scene"]["scene_id"], "x":x,"y":y,"width":w,"height":h,
                       "row":e["row"],"gap_after":e["gap_after"],
-                      "picture":{"x":picture_x,"y":picture_y,"width":image.width,"height":image.height},
+                      "picture":{"x":picture_x,"y":picture_y,"width":image.width,"height":image.height,
+                                 "panel_w":e["panel"].width,"panel_h":e["panel"].height,
+                                 "caption_layout":bool(e.get("meta",{}).get("caption_layout")),
+                                 "transparent":e.get("meta",{}).get("background_mode") == "transparent"},
                       "caption":{"lines":e["caption"],"x":x+cap_x,"y":y+cap_y,"height":math.ceil(len(e["caption"])*e["step"])},
                       "heading":{**{k:v for k,v in badge.items() if k != "image"}, "text":e["heading_text"],
                                  "align":e["heading_align"],"x":round(x+hx),"y":round(y+hy)}})

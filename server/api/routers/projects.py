@@ -8,11 +8,14 @@ import math
 import re
 import copy
 
-from fastapi import APIRouter, Body, HTTPException, Response
+from fastapi import APIRouter, Body, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from server import store
 from server.api import tasks
+from server.api.deps import get_owned_project
+from server.core.security import verify_token
+from server.db import people_repository
 from server.config import PROJECTS_DIR
 from server.core import story, compose, scenes as scene_engine
 from server.core.asset_render import validate_transform
@@ -103,8 +106,9 @@ def _project_summary(pid: str) -> dict:
 
 
 @router.get("")
-def list_projects():
-    return [_project_summary(pid) for pid in store.list_projects()]
+def list_projects(people_id: int = Depends(verify_token)):
+    owned = people_repository.list_project_ids_by_owner(people_id)
+    return [_project_summary(pid) for pid in owned]
 
 
 class CreateProjectIn(BaseModel):
@@ -116,7 +120,7 @@ class CreateProjectIn(BaseModel):
 
 
 @router.post("", status_code=201)
-def create_project(body: CreateProjectIn):
+def create_project(body: CreateProjectIn, people_id: int = Depends(verify_token)):
     try:
         story.load_style(body.style_id)  # 提前校验风格存在
     except ValueError as e:
@@ -127,6 +131,8 @@ def create_project(body: CreateProjectIn):
         raise HTTPException(422, str(e))
     pid = store.new_project_id()
     store.init_dirs(pid)
+    # 归属先落库：后续任何 pid 路由都要走 get_owned_project 校验
+    people_repository.create_project_ownership(pid, people_id, title=body.topic[:255])
     provided = []
     for i, (c, png) in enumerate(uploaded, 1):
         cid = f"user_{i:02d}"
@@ -157,12 +163,13 @@ def create_project(body: CreateProjectIn):
             provided_characters=provided,
             background_mode=body.background_mode,
         ),
+        people_id=people_id,
     )
     return {"project_id": pid, "task_id": t.task_id}
 
 
 @router.get("/{pid}")
-def project_detail(pid: str):
+def project_detail(pid: str = Depends(get_owned_project)):
     try:
         store.project_dir(pid)
     except FileNotFoundError:
@@ -339,7 +346,7 @@ def _validate_layout_assets(pid: str, sb: dict):
 
 
 @router.put("/{pid}/storyboard")
-def update_storyboard(pid: str, sb: dict = Body(...)):
+def update_storyboard(sb: dict = Body(...), pid: str = Depends(get_owned_project)):
     _editable(pid)
     try:
         store.project_dir(pid)
@@ -571,7 +578,7 @@ def _validate_overlay(project_id: str, overlay: dict, i: int):
 
 
 @router.put("/{pid}/scenes/{scene_id}/layout")
-def update_layout(pid: str, scene_id: str, body: LayoutIn):
+def update_layout(scene_id: str, body: LayoutIn, pid: str = Depends(get_owned_project)):
     """保存排版表（合并进现有 scene meta，不覆盖 versions/active_version 等）。"""
     _editable(pid)
     try:
@@ -672,7 +679,7 @@ class StatusIn(BaseModel):
 
 
 @router.put("/{pid}/scenes/{scene_id}/status")
-def update_scene_status(pid: str, scene_id: str, body: StatusIn):
+def update_scene_status(scene_id: str, body: StatusIn, pid: str = Depends(get_owned_project)):
     """审核状态流：draft → approved（也可取消回 draft）。"""
     _editable(pid)
     try:
@@ -695,7 +702,7 @@ def update_scene_status(pid: str, scene_id: str, body: StatusIn):
 
 
 @router.put("/{pid}/characters/{cid}/reference")
-def replace_reference(pid: str, cid: str, body: CharacterIn):
+def replace_reference(cid: str, body: CharacterIn, pid: str = Depends(get_owned_project)):
     _editable(pid)
     sb = store.load_storyboard(pid)
     ch = next((c for c in sb["characters"] if c["character_id"] == cid), None)
@@ -720,7 +727,7 @@ def replace_reference(pid: str, cid: str, body: CharacterIn):
 
 
 @router.post("/{pid}/characters/confirm")
-def confirm_characters(pid: str):
+def confirm_characters(pid: str = Depends(get_owned_project)):
     _editable(pid)
     sb = store.load_storyboard(pid)
     if any(
@@ -736,14 +743,26 @@ def confirm_characters(pid: str):
 
 
 @router.post("/{pid}/long-preview")
-def preview_long_image(pid: str, options: dict = Body(...)):
+def preview_long_image(options: dict = Body(...), pid: str = Depends(get_owned_project)):
     sb = store.load_storyboard(pid)
     validate_long_layout(options, {s["scene_id"] for s in sb["scenes"]})
     _validate_layout_assets(pid, {"long_layout": options})
-    picture, _ = compose.render_long_image(pid, sb, options)
+    picture, layout = compose.render_long_image(pid, sb, options)
     picture.thumbnail((180, 4000) if options.get("thumbnail") else (540, 20000))
     out = io.BytesIO()
     picture.save(out, format="PNG")
+    # Expose the per-scene boxes so the workbench can overlay a live editor
+    # on the exact panel positions for direct dragging in the preview.
+    boxes_json = json.dumps({
+        "scenes": layout.get("scenes", []),
+        "width": layout.get("width"),
+        "height": layout.get("height"),
+    }, ensure_ascii=False)
     return Response(
-        out.getvalue(), media_type="image/png", headers={"Cache-Control": "no-store"}
+        out.getvalue(), media_type="image/png",
+        headers={
+            "Cache-Control": "no-store",
+            "X-Long-Layout": urllib.parse.quote(boxes_json, safe=""),
+            "Access-Control-Expose-Headers": "X-Long-Layout",
+        },
     )

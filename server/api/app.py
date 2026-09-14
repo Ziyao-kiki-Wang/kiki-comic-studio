@@ -11,6 +11,7 @@
 """
 
 import uvicorn
+import os
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,7 +20,7 @@ from server.services.bubble_assets import ASSET_DIR, VARIANTS, filename
 from server.core.studio import BUBBLES
 
 from server.api import tasks
-from server.api.routers import assets, files, generate, projects, styles
+from server.api.routers import assets, auth, files, generate, projects, styles, user
 from server.api.routers import tasks as tasks_router
 
 
@@ -46,6 +47,17 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     tasks.load_tasks()  # 孤儿任务恢复：上次卡在 running 的标 failed
+
+    # 账户域启动自检：密钥缺失时注册/登录/验证码全失守，启动即失败好过带病运行。
+    # 本地纯创作（不走 /api/auth/*）不受影响——这里只拦 auth 服务启动项。
+    for var in ("COMIC_JWT_KEY_HEX", "COMIC_CAPTCHA_SECRET"):
+        if not (os.environ.get(var) or "").strip():
+            raise RuntimeError(
+                f"{var} 未配置，服务拒绝启动。请在 .env 配置（见 .env.example）。"
+            )
+
+    app.include_router(auth.router)
+    app.include_router(user.router)
     app.include_router(projects.router, prefix="/api")
     app.include_router(generate.router, prefix="/api")
     app.include_router(tasks_router.router, prefix="/api")
