@@ -10,10 +10,22 @@ from server.core.asset_render import render_asset
 from server.core.studio import BUBBLES, background_mode, screen_enabled
 from server.services.assets import font_path
 
+# Project-bundled CJK font is the reliable cross-platform fallback: the
+# fonts/ tree is deployed alongside the code, so any text without an explicit
+# font_id still renders Chinese correctly on both Windows and the Linux host.
+_FALLBACK_FONT = (
+    Path(__file__).resolve().parents[2]
+    / "fonts"
+    / "source-han-sans"
+    / "SourceHanSansSC-Regular.otf"
+)
+
 FONT_CANDIDATES = [
+    str(_FALLBACK_FONT),
     "C:/Windows/Fonts/msyh.ttc",
     "C:/Windows/Fonts/simhei.ttf",
     "C:/Windows/Fonts/simsun.ttc",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
 ]
 
 
