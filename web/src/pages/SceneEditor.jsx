@@ -48,7 +48,10 @@ function useImage(url) {
     setImage(null);
     if (!url) return;
     const img = new window.Image();
-    img.crossOrigin = "anonymous";
+    // No crossOrigin: the image is served same-origin with a ?token= query
+    // (see files.py). Marking it crossOrigin="anonymous" turns the request
+    // into a CORS fetch; some proxies strip/omit ACAO there, so onload never
+    // fires and the subject never paints — leaving only the checkerboard.
     img.onload = () => setImage(img);
     img.src = url?.startsWith("http") || url?.startsWith("data:") ? url : fileUrl(url);
     return () => {
