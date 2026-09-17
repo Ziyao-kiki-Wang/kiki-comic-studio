@@ -51,7 +51,9 @@ not_for: "项目级焦点（-> STATUS.md），决策理由（-> DECISIONS.md）"
 
 | 项 | 风险 | 处理时机 |
 |---|---|---|
+| 分镜编辑依赖服务端 recompose | `save()` 触发 Pillow 重画 panel.png 传回，延迟明显；前端 Konva 已能所见即所得 | **下一步 Phase 1**：`stage.toDataURL()` 前端出图，`save` 不再走 `recompose_scene`（见 DECISIONS.md 2026-09-16） |
 | `tasks._tasks` / `store._locks` 进程内字典 | 重启丢失任务状态；横向扩容不行 | 需要多实例时外置 Redis/DB |
 | `output/comic.db` SQLite | 生产若忘配 `COMIC_MYSQL_*` 会落本地文件 | 已文档化，生产必须配 MySQL |
 | fonts 365MB 未入库 | 新环境部署要单独传 | 考虑字体 CDN 化或精简字重 |
 | 账户体系独立 | 与主站 lunwen 用户不通 | 若需 SSO 再设计 token 共享 |
+| 长图排版引擎在服务端 | `compose.py` 17 套模板 Pillow 渲染，改排版选项要等服务端重渲 | Phase 2：前端 Canvas 重写（大工程，可延后；先靠 Phase 1 的分镜本地合成减少触发） |

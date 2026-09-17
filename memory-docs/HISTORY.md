@@ -8,6 +8,18 @@ not_for: "当前快照（-> STATUS），决策理由（-> detail_mem/DECISIONS.m
 
 # History
 
+## 2026-09-15 — 修复编辑器点开格子主画布空白
+
+**问题**：点进某格编辑时，右侧主画布只剩棋盘格（透明底），主体、气泡、文字全不渲染；但左侧分镜缩略图正常。
+
+**根因**：`SceneEditor.jsx` 的 `useImage` 给 `new Image()` 设了 `crossOrigin="anonymous"`，把同源 `?token=` 图片请求变成 CORS fetch。当响应缺少可用的 `Access-Control-Allow-Origin` 时 `onload` 不触发 → `bg` 永远 null → 透明模式主体 `{transparent && bg && <KonvaImage/>}` 画不出。缩略图走普通 `<img>`（无 crossOrigin）不受影响，所以能显示。
+
+**修复**：删掉 `useImage` 里的 `img.crossOrigin="anonymous"`。图片是同源 + `?token=` 鉴权，本就不需要 CORS 标记。commit `aae31ac`，服务器 pull + `web/ npm build` 生效（纯静态，无需重启）。
+
+**教训**：
+- 前端用 `new Image()`/`useImage` 预加载**同源、已带 query token** 的图片时，**不要加 `crossOrigin="anonymous"`**——它会把请求升级成 CORS fetch，代理链路上 ACAO 缺失时静默加载失败，且这类 bug 只在"canvas 预加载"路径暴露，普通 `<img>` 显示正常，极具迷惑性。
+- 同类排查套路：缩略图能显示、主画布空白 → 先怀疑 `useImage`/canvas 预加载路径与 `<img>` 的差异（crossOrigin、referrerpolicy、webp 解码），而不是文件本身。
+
 ## 2026-09-15 — 修复移动端验证码加载失败
 
 **问题**：手机用户打开 `comic.frowang.com` 验证码加载失败。

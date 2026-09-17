@@ -7,9 +7,11 @@ import io
 import math
 import re
 import copy
+import shutil
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
+from PIL import Image
 
 from server import store
 from server.api import tasks
@@ -17,7 +19,7 @@ from server.api.deps import get_owned_project
 from server.core.security import verify_token
 from server.db import people_repository
 from server.config import PROJECTS_DIR
-from server.core import story, compose, scenes as scene_engine
+from server.core import story, compose, scenes as scene_engine, characters as character_engine
 from server.core.asset_render import validate_transform
 from server.core.studio import (
     CATALOG,
@@ -61,6 +63,7 @@ class CharacterIn(BaseModel):
     role: str = Field(default="主人公", max_length=150)
     description: str = Field(default="", max_length=1200)
     image_data: str = Field(max_length=11200000)
+    reference_mode: str = Field(default="original", pattern="^(original|stylized)$")
 
 
 def _project_status(pid: str, sb: dict) -> tuple[int, str]:
@@ -144,6 +147,7 @@ def create_project(body: CreateProjectIn, people_id: int = Depends(verify_token)
                 "role": c.role,
                 "description": c.description,
                 "reference_source": "upload",
+                "reference_mode": c.reference_mode,
             }
         )
     t = tasks.submit(
@@ -191,7 +195,7 @@ def project_detail(pid: str = Depends(get_owned_project)):
         scenes.append(
             {
                 "scene_id": sid,
-                "generation_prompt": scene_engine._build_prompt(sb, s),
+                "generation_prompt": scene_engine._build_prompt(sb, s, pid),
                 "last_generation": (meta or {})
                 .get("generation_history", {})
                 .get(
@@ -231,6 +235,10 @@ def project_detail(pid: str = Depends(get_owned_project)):
             c["character_id"]: _file_url(
                 pid, f"characters/{c['character_id']}_rgba.png"
             )
+            for c in sb.get("characters", [])
+        },
+        "character_modes": {
+            c["character_id"]: character_engine.character_reference_mode(pid, c)
             for c in sb.get("characters", [])
         },
         "prop_urls": {
@@ -364,9 +372,14 @@ def update_storyboard(sb: dict = Body(...), pid: str = Depends(get_owned_project
         c["reference_source"] = protected[c["character_id"]].get(
             "reference_source", "generated"
         )
+        # reference_mode 由专门接口管理，这里保留现有值，避免编辑角色时丢模式
+        if "reference_mode" not in c:
+            c["reference_mode"] = protected[c["character_id"]].get(
+                "reference_mode", "original"
+            )
     changed_characters = {c["character_id"] for c in sb.get("characters", [])
                           if any(c.get(k) != protected[c["character_id"]].get(k)
-                                 for k in ("name", "role", "description", "english_desc"))}
+                                 for k in ("name", "role", "description", "english_desc", "reference_mode"))}
     for s in sb["scenes"]:
         previous = next(
             (item for item in old["scenes"] if item["scene_id"] == s["scene_id"]), None
@@ -412,6 +425,9 @@ class LayoutIn(BaseModel):
     """编辑器回写的排版表：气泡数组 + 特写框位置。
 
     screen_inset 显式传 null 表示删除特写框；字段不出现则保持原值。
+    panel_png 是前端 Konva 画布导出的 base64 data-url，带上它时服务端只
+    落盘 panel.png 并清 render_stale，不再用 Pillow 重画（见 DECISIONS
+    2026-09-16：编辑合成已前端接管）。
     """
 
     bubbles: list[dict] | None = Field(default=None, max_length=20)
@@ -422,6 +438,9 @@ class LayoutIn(BaseModel):
     subject_layout: dict | None = None
     layer_order: list[str] | None = Field(default=None, max_length=150)
     element_groups: list[list[str]] | None = Field(default=None, max_length=20)
+    panel_png: str | None = Field(default=None, max_length=25000000)
+    # 前端导出 PNG 时的画布尺寸（panel_height / height），供 caption 区裁切与 meta 同步
+    canvas: dict | None = None
 
 
 def _validate_text_box(box, label, caption=False):
@@ -668,10 +687,70 @@ def update_layout(scene_id: str, body: LayoutIn, pid: str = Depends(get_owned_pr
             body.caption
         )
     meta["status"] = "draft"
-    meta["render_stale"] = True
+    # 前端已用 Konva 画布导出成品图：直接落盘并清 render_stale，不再触发服务端
+    # Pillow 重画。前端导出的是完整画布（画面 + 旁白区），对应 lettering 里的
+    # canvas；panel.png（长图排版用）在 caption 走自由布局时与整图相同，走模板
+    # 旁白时需裁掉底部 caption 区——与 lettering.py 的分支保持一致。
+    if body.canvas and isinstance(body.canvas.get("panel_height"), (int, float)):
+        meta["canvas"] = {
+            "width": int(body.canvas.get("width", 1080)),
+            "height": int(body.canvas.get("height", body.canvas["panel_height"])),
+            "panel_height": int(body.canvas["panel_height"]),
+        }
+    if body.panel_png:
+        png = _decode_panel_png(body.panel_png)
+        pdir = store.project_dir(pid)
+        out_dir = pdir / "output"
+        out_dir.mkdir(exist_ok=True)
+        full_path = out_dir / f"{scene_id}.png"
+        panel_path = out_dir / f"{scene_id}_panel.png"
+        with open(full_path, "wb") as fh:
+            fh.write(png)
+        # 模板旁白：panel 裁掉 caption 区；自由旁白（caption_layout）：panel 即整图
+        if meta.get("caption_layout"):
+            with open(panel_path, "wb") as fh:
+                fh.write(png)
+        else:
+            _crop_panel_for_template(png, meta, panel_path)
+        meta["panel"] = f"output/{scene_id}_panel.png"
+        meta["composite"] = f"output/{scene_id}.png"
+        meta["render_stale"] = False
+    else:
+        meta["render_stale"] = True
     store.save_storyboard(pid, sb)
     store.save_scene_meta(pid, scene_id, meta)
     return {"ok": True, "scene_id": scene_id}
+
+
+def _decode_panel_png(data_url: str) -> bytes:
+    """把前端 canvas.toDataURL('image/png') 的 data-url 解成 PNG 字节。"""
+    header, _, encoded = data_url.partition(",")
+    if not encoded or "base64" not in header:
+        raise HTTPException(422, "panel_png 必须是 base64 data-url")
+    import base64, binascii
+    try:
+        data = base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise HTTPException(422, "panel_png base64 解码失败") from exc
+    if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise HTTPException(422, "panel_png 不是有效 PNG")
+    return data
+
+
+def _crop_panel_for_template(png: bytes, meta: dict, panel_path):
+    """模板旁白场景：前端整图裁掉底部 caption 区，得到长图用的 panel。
+
+    caption 区高度 = meta.canvas.height - meta.canvas.panel_height；用 Pillow
+    只做一次裁切（不重画），代价远低于完整 recompose。
+    """
+    canvas = meta.get("canvas") or {}
+    panel_h = canvas.get("panel_height")
+    total_h = canvas.get("height")
+    with Image.open(io.BytesIO(png)) as im:
+        if panel_h and total_h and total_h > panel_h:
+            im.crop((0, 0, im.width, int(panel_h))).save(panel_path)
+        else:
+            im.save(panel_path)
 
 
 class StatusIn(BaseModel):
@@ -718,12 +797,65 @@ def replace_reference(cid: str, body: CharacterIn, pid: str = Depends(get_owned_
             "english_desc": body.description
             or "Keep the supplied reference character unchanged.",
             "reference_source": "upload",
+            "reference_mode": body.reference_mode,
         }
     )
     sb["characters_confirmed"] = False
     store.save_storyboard(pid, sb)
     store.mark_scenes_stale(pid, cid)
     return {"ok": True}
+
+
+class ReferenceModeIn(BaseModel):
+    reference_mode: str = Field(pattern="^(original|stylized)$")
+
+
+@router.put("/{pid}/characters/{cid}/reference-mode")
+def set_reference_mode(cid: str, body: ReferenceModeIn, pid: str = Depends(get_owned_project)):
+    """切换上传人物的参考模式：original=上传原图，stylized=按项目画风重绘。
+
+    该操作不重画图片，只标记选择；真正的风格化在下一次场景生成或
+    prepare_characters 时自动补齐（并写入 {cid}_styled.png 缓存）。
+    """
+    _editable(pid)
+    sb = store.load_storyboard(pid)
+    ch = next((c for c in sb["characters"] if c["character_id"] == cid), None)
+    if ch is None:
+        raise HTTPException(404, "角色不存在")
+    if ch.get("reference_source") != "upload":
+        raise HTTPException(422, "只有上传形象才能切换原始/风格化模式")
+    old_mode = character_engine.character_reference_mode(pid, ch)
+    if body.reference_mode == old_mode:
+        return {"ok": True, "reference_mode": old_mode, "changed": False}
+    folder = store.project_dir(pid) / "characters"
+    original = folder / f"{cid}_original.png"
+    styled = folder / f"{cid}_styled.png"
+    active = folder / f"{cid}.png"
+    if body.reference_mode == "stylized":
+        if not original.exists() and not active.exists():
+            raise HTTPException(409, "找不到上传原图，请重新上传形象")
+        # 此刻 {cid}.png 仍是上传原图，先备份到 _original，风格化生成会覆盖它
+        if not original.exists():
+            shutil.copyfile(active, original)
+        # 生成由生成阶段补齐，这里只记录选择
+        ch["reference_mode"] = "stylized"
+        if not styled.exists():
+            # 标记需要重新风格化：生成阶段发现 {cid}.png 还是原图时会重画
+            ch["reference_stale"] = True
+    else:
+        if not original.exists():
+            raise HTTPException(409, "找不到上传原图，无法切回原始模式")
+        if styled.exists():
+            # 保留风格化缓存，但把生效参考图切回原图
+            shutil.copyfile(original, active)
+        else:
+            shutil.copyfile(original, active)
+        (folder / f"{cid}_rgba.png").unlink(missing_ok=True)
+        ch["reference_mode"] = "original"
+    sb["characters_confirmed"] = False
+    store.save_storyboard(pid, sb)
+    store.mark_scenes_stale(pid, cid)
+    return {"ok": True, "reference_mode": body.reference_mode, "changed": True}
 
 
 @router.post("/{pid}/characters/confirm")

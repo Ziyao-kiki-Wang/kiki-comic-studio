@@ -416,6 +416,8 @@
 .ctx-parent { display: flex; justify-content: space-between; align-items: center; }
 .ctx-arrow { color: var(--muted); font-size: 11px; }
 .ctx-sub { position: absolute; left: calc(100% - 4px); top: -5px; min-width: 150px; padding: 5px; background: #fff; border: 1px solid #d5e2db; border-radius: 10px; box-shadow: 0 8px 28px #1c352a26; }
+/* When the menu is near the wrap's right edge, open submenus on the left so they stay clickable. */
+.ctx-menu--flip .ctx-sub { left: auto; right: calc(100% - 4px); }
 .ctx-sub button { display: block; width: 100%; padding: 7px 10px; border: 0; border-radius: 6px; background: none; text-align: left; cursor: pointer; white-space: nowrap; }
 .ctx-sub button:hover { background: #ecf5ef; }
 .ctx-danger { color: #c22; }

@@ -192,6 +192,23 @@ export default function ProjectList() {
                   />
                 </label>
                 <label>
+                  形象风格
+                  <select
+                    value={c.reference_mode}
+                    disabled={creating}
+                    onChange={(e) =>
+                      setCharacters((list) =>
+                        list.map((it, j) =>
+                          j === i ? { ...it, reference_mode: e.target.value } : it,
+                        ),
+                      )
+                    }
+                  >
+                    <option value="original">保持原图风格</option>
+                    <option value="stylized">按所选风格重绘</option>
+                  </select>
+                </label>
+                <label>
                   保留特征或补充说明
                   <textarea
                     value={c.description}
@@ -236,6 +253,7 @@ export default function ProjectList() {
                       name: `角色${list.length + 1}`,
                       role: list.length ? "配角" : "主人公",
                       description: "",
+                      reference_mode: "original",
                       image_data,
                     },
                   ]);

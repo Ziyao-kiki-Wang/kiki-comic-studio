@@ -45,6 +45,7 @@ not_for: "临时进展（-> STATUS），历史原因（-> HISTORY）"
 - **production 必须同源**：`API_BASE` 在 `import.meta.env.PROD` 时是 `""`，请求走 `comic.frowang.com/api/*` → nginx 反代。**绝对不要写死 IP:端口**（2026-09-15 因此导致移动端验证码全挂）
 - `VITE_API_BASE` 仅用于本地开发覆盖
 - 三个文件共用同一约定：`web/src/lib/api.js` `authApi.js` `studioAssets.js`——改一处必须改全部
+- **`useImage`/canvas 预加载同源图片不要加 `crossOrigin="anonymous"`**：会把 `?token=` 请求升级成 CORS fetch，代理缺 ACAO 时 `onload` 静默不触发、主体画不出（2026-09-15 编辑器点开格子空白就是这个）；普通 `<img>` 不受影响，二者行为不同别混淆
 
 ## 代码风格
 

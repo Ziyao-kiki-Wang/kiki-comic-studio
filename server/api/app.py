@@ -12,20 +12,77 @@
 
 import uvicorn
 import os
-from fastapi import FastAPI
+import logging
+import time
+import traceback
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from server.services.bubble_assets import ASSET_DIR, VARIANTS, filename
 from server.core.studio import BUBBLES
+from server.config import ROOT_DIR
 
 from server.api import tasks
 from server.api.routers import assets, auth, files, generate, projects, styles, user
 from server.api.routers import tasks as tasks_router
 
+# ---------- 请求日志 ----------
+# 所有 /api/* 请求写一行到 output/logs/api.log；handler 抛异常时附完整 traceback。
+# 后台任务内部 print 仍走 tasks._LogWriter（进 task.logs），不打到这个文件。
+LOG_DIR = ROOT_DIR / "output" / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+_api_logger = logging.getLogger("comic.api")
+_api_logger.setLevel(logging.INFO)
+if not _api_logger.handlers:  # uvicorn --reload 会重复 import，避免重复 handler
+    _fh = logging.FileHandler(LOG_DIR / "api.log", encoding="utf-8")
+    _fh.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(message)s", "%Y-%m-%d %H:%M:%S")
+    )
+    _api_logger.addHandler(_fh)
+    _api_logger.propagate = False  # 不冒泡给 uvicorn，避免一条日志写两遍
+
 
 def create_app() -> FastAPI:
     app = FastAPI(title="AI 漫画长图生产工具 API", version="0.2.0")
+
+    @app.middleware("http")
+    async def request_log_middleware(request: Request, call_next):
+        start = time.perf_counter()
+        # 只记 API；静态文件/长图下载量太大，且 files.py 已有自己的归属校验
+        if not request.url.path.startswith("/api/"):
+            return await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception:
+            # 未捕获异常 = 未来的 500；把 traceback 记到 api.log
+            _api_logger.error(
+                "%s %s -> 500\n%s",
+                request.method,
+                request.url.path,
+                traceback.format_exc(),
+            )
+            raise
+        elapsed = (time.perf_counter() - start) * 1000
+        if response.status_code >= 400:
+            _api_logger.warning(
+                "%s %s -> %s (%.0fms)",
+                request.method,
+                request.url.path,
+                response.status_code,
+                elapsed,
+            )
+        else:
+            _api_logger.info(
+                "%s %s -> %s (%.0fms)",
+                request.method,
+                request.url.path,
+                response.status_code,
+                elapsed,
+            )
+        return response
+
     @app.get("/api/bubble-catalog")
     def bubble_catalog():
         return {kind: [v for v in VARIANTS if filename(kind, v) is None or (ASSET_DIR / filename(kind, v)).is_file()] for kind in BUBBLES}
