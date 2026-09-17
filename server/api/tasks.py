@@ -47,7 +47,12 @@ def _save_locked():
     TASKS_FILE.parent.mkdir(parents=True, exist_ok=True)
     TASKS_FILE.write_text(
         json.dumps(
-            [t.to_dict() for t in _tasks.values()], ensure_ascii=False, indent=2
+            [t.to_dict() for t in _tasks.values()],
+            ensure_ascii=False,
+            indent=2,
+            # fn() 返回值可能含 Path/其他不可序列化对象；default=str 兑底，
+            # 把 Path 转成字符串而不是让整个保存崩溃（2026-09-17 实雷）
+            default=str,
         ),
         encoding="utf-8",
     )

@@ -71,7 +71,12 @@ def _build_fn(pid: str, body: GenerateIn):
         return lambda: cli.run_pipeline(pid)
 
     if body.action == "prepare_characters":
-        return lambda: characters.generate_references(pid, sb)
+        # generate_references 返回 {cid: Path}；dict 会进 t.result 被 json 落盘，
+        # 所以把 Path 转成项目相对路径字符串，避免 PosixPath 序列化炸 _save_locked
+        def prep():
+            refs = characters.generate_references(pid, sb)
+            return {"references": {cid: str(p) for cid, p in refs.items()}}
+        return prep
 
     if body.action == "compose_long":
         return lambda: compose.make_long_image(pid, sb)
