@@ -7,6 +7,7 @@ import shutil
 
 from server import store
 from server.services import image_gen
+from server.services.image_gen import MissingTransparencyError
 
 
 def cutout_character(project_id: str, character_id: str) -> Path:
@@ -19,13 +20,19 @@ def cutout_character(project_id: str, character_id: str) -> Path:
     if image_gen.validate_image(src):
         shutil.copyfile(src, dst)
     else:
-        image_gen.edit(
-            "Return this exact reference character on a genuinely transparent alpha background as PNG. "
-            "Preserve the character's identity, pose, outfit, proportions, visual style and all held accessories. "
-            "Only remove the environment. Do not paint a white, colored or checkerboard backdrop.",
-            [src], dst, size="1024x1536", background="transparent",
-            allow_reference_fallback=False,
-        )
+        try:
+            image_gen.edit(
+                "Return this exact reference character on a genuinely transparent alpha background as PNG. "
+                "Preserve the character's identity, pose, outfit, proportions, visual style and all held accessories. "
+                "Only remove the environment. Do not paint a white, colored or checkerboard backdrop.",
+                [src], dst, size="1024x1536", background="transparent",
+                allow_reference_fallback=False,
+            )
+        except MissingTransparencyError as exc:
+            # 模型返回非透明图；接受不透明结果（原图已备份在 {cid}.png），
+            # 让任务继续走而不是整个生成断在这一步
+            print(f"  [警告] {character_id} 透明化失败，已保留不透明版本：{exc}")
+            shutil.copyfile(src, dst)
     print(f"  {character_id} 透明底已生成：{dst.name}")
     return dst
 
@@ -57,10 +64,17 @@ def stylize_character(project_id: str, sb: dict, character_id: str) -> Path:
         "Isolated on a genuinely transparent alpha background, PNG, no painted backdrop. "
         f"Target art style: {style}. {neg}"
     )
-    image_gen.edit(
-        prompt, [original], styled, size="1024x1536", background="transparent",
-        allow_reference_fallback=False, request_timeout=240,
-    )
+    try:
+        image_gen.edit(
+            prompt, [original], styled, size="1024x1536", background="transparent",
+            allow_reference_fallback=False, request_timeout=240,
+        )
+    except MissingTransparencyError as exc:
+        print(f"  [警告] {character_id} 风格化未返回透明背景，已接受不透明结果：{exc}")
+        image_gen.edit(
+            prompt, [original], styled, size="1024x1536", background="opaque",
+            allow_reference_fallback=False, request_timeout=240,
+        )
     shutil.copyfile(styled, out)
     (folder / f"{character_id}_rgba.png").unlink(missing_ok=True)
     print(f"  {character_id} 已按画风重绘：{out.name}")
@@ -185,7 +199,11 @@ def generate_references(
             "plus clear space on both sides and below the feet. Scale the character down to fit if needed. "
             f"isolated on a genuinely transparent alpha background, PNG, no painted backdrop, {style}, {neg}"
         )
-        image_gen.generate(prompt, path, size="1024x1536", background="transparent")
+        try:
+            image_gen.generate(prompt, path, size="1024x1536", background="transparent")
+        except MissingTransparencyError as exc:
+            print(f"  [警告] {cid} 生成未返回透明背景，已接受不透明结果：{exc}")
+            image_gen.generate(prompt, path, size="1024x1536", background="opaque")
         # Keep the existing download URL as a byte-for-byte copy of the model output.
         shutil.copyfile(path, pdir / "characters" / f"{cid}_rgba.png")
         if regen:
