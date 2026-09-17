@@ -73,9 +73,16 @@ def create_storyboard(
     if background_mode == "transparent":
         prompt += "\n画面直接输出透明背景 PNG：在 scene_prompt_en 中明确要求真实透明背景，保留人物、叙事物品与强化情绪的漫画符号作为完整组合，外围和物品间空隙透明。地点用于决定物品与人物动作，不画外围房间、墙壁、远景与连续地面，不画白色或棋盘格背景。允许人物周围有孤立的警示标记、速度线等表现元素，不要求每格站立全身照。"
     provided = provided_characters or []
-    prompt += f"\n环境与道具的参考画风：{object_style({'style': style, 'style_id': style_id})}。有角色参考图时，角色自身保持附图的原画风和比例。"
+    prompt += f"\n环境与道具的参考画风：{object_style({'style': style, 'style_id': style_id})}。"
     if provided:
-        prompt += "\n以下固定角色的参考图随消息附上，每张图前标明角色编号和名字。必须保留编号、名字和用户指定的身份，不能从外貌推断善恶或改换故事角色。请观察图片，在 english_desc 中用英文记录可见的发型、服装、颜色、身体比例和画风，不能虚构看不见的细节；外貌以图片为准，description 是用户补充要求。动作和道具持握方式需适合实际形象。不得重新设计角色。只有剧情必需时才补充其他配角。\n"
+        original_names = [c["name"] for c in provided if c.get("reference_mode") != "stylized"]
+        stylized_names = [c["name"] for c in provided if c.get("reference_mode") == "stylized"]
+        prompt += "\n以下固定角色的参考图随消息附上，每张图前标明角色编号和名字。必须保留编号、名字和用户指定的身份，不能从外貌推断善恶或改换故事角色。请观察图片，在 english_desc 中用英文记录可见的发型、服装、颜色、身体比例和画风，不能虚构看不见的细节；外貌以图片为准，description 是用户补充要求。动作和道具持握方式需适合实际形象。不得重新设计角色。只有剧情必需时才补充其他配角。"
+        if original_names:
+            prompt += f"{'、'.join(original_names)} 使用上传的原始形象，角色自身保持附图的原画风和比例，style 仅用于协调环境与道具。"
+        if stylized_names:
+            prompt += f"{'、'.join(stylized_names)} 的形象会按目标画风重绘，参考图仅用于确定身份、服装与比例；画面按 style 统一风格。"
+        prompt += "\n"
         prompt += json.dumps(provided, ensure_ascii=False)
     prompt += "\n画面中出现的角色必须与该格 characters 完全一致，手机屏幕、照片、倒影里的人物也算出场。不要在 scene_prompt_en 中引入未列出的角色。"
     prompt += '\n每句对话可附 bubble_type，选择 speech/ellipse/burst/thought/whisper；旁白仍放 caption。每格附 question（适合问答模板的问题，20字内）、heading（8字内章节名）。screen_inset 非空时必须是 {"screen_prompt_en":"英文屏幕描述"}。'
@@ -223,7 +230,7 @@ def prepare_scene_prompt(project_id: str, sb: dict, scene: dict, edit_instructio
 2. 用户当前 story、人物勾选和明确的镜头要求优先于旧 scene_prompt_en。旧英文只保留仍适用的细节，删除冲突的动作、人物和镜头，不能把两套描述拼起来。若 story 为空，则以当前英文描述为动作依据。
 3. edit_instruction 非空时，它是最新修改要求，优先于原动作和构图。根据要求可从当前 characters 中移除人物，但不能新增编号。保留未要求改变的细节。为空时 characters 原样返回。若有 confirmed_edit_instruction，它是用户已经采用的改图要求，优先于旧 story 和旧英文，但低于最新 edit_instruction；保留其已确定的构图、物品、表情和文字，不要退回改图前的版本。
 4. 按 visual_direction 设计视觉中心、夸张表情、动作与物品的主次大小。不必拘泥于旧英文的“小手机、自然比例、平视、只留家具、禁止独立放大展示”等保守写法；这些默认限制可改写，明确的用户要求仍优先。screen_enabled=false 时不画屏幕设备。背景按 background 执行：transparent 时保留人物、叙事物品和漫画表现符号，外围与空隙透明。
-5. 参考图决定角色的脸、发型、衣服、颜色、比例和原画风；style 仅用于协调环境与道具。允许剧情需要的简短屏幕文字、标语，禁止绘制台词气泡和旁白。排除其他角色时要写清是额外人物，不能用 no faces、no hands 等描述误删已选角色的必要特征。
+5. 参考图决定角色的脸、发型、衣服、颜色和比例。reference_mode=original 的上传角色保持附图的原画风，style 仅用于协调环境与道具；reference_mode=stylized 的上传角色会被预先按 style 重绘，参考图只决定身份与造型，画面整体按 style 统一风格。允许剧情需要的简短屏幕文字、标语，禁止绘制台词气泡和旁白。排除其他角色时要写清是额外人物，不能用 no faces、no hands 等描述误删已选角色的必要特征。
 6. 直接根据当前 location、story 和动作自动安排叙事物品、辅助符号及其位置，无需用户勾选道具。旧英文里与当前剧情冲突的物品应删除，仍适用的外观细节可保留；不必照搬旧图的桌椅。neighbor_compositions 只用于避免相邻格构图重复，不能把其他格的角色、事件或无关物品搬到本格。
 7. 人物默认完整入画，禁止画布边缘截断人物轮廓；允许桌椅等物品自然遮挡。明确要求半身或特写时可省略下半身，但完整头部、发型、发髻及发饰必须保留。在最高发梢或发饰上方至少预留画面高度 8% 的空白，不能只按额头计算；手和可见衣摆也不要被边缘意外裁断。画面拥挤时退远镜头或缩小整组主体，不能为突出手机而裁掉人物头发。整理时修正旧描述或当前图中不完整的取景。
 只输出 JSON：{"scene_prompt_en":"整理后的完整英文画面描述，不含互相冲突的旧要求", "characters":["实际出场角色 id"]}。

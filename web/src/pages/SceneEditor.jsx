@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Stage,
@@ -48,12 +48,15 @@ function useImage(url) {
     setImage(null);
     if (!url) return;
     const img = new window.Image();
-    // No crossOrigin: the image is served same-origin with a ?token= query
-    // (see files.py). Marking it crossOrigin="anonymous" turns the request
-    // into a CORS fetch; some proxies strip/omit ACAO there, so onload never
-    // fires and the subject never paints — leaving only the checkerboard.
+    // canvas.toDataURL 要求图片不污染画布。同源图片（生产 /api/files）不加
+    // crossOrigin 也不会污染；本地跨域开发（5173→8000）才需要它 + 服务端
+    // ACAO:*。按是否跨域决定，避免给同源请求无谓升级成 CORS fetch（曾致
+    // onload 静默不触发，见 HISTORY 2026-09-15 / CONVENTIONS 前端约定）。
+    const src = url?.startsWith("http") || url?.startsWith("data:") ? url : fileUrl(url);
+    const isCrossOrigin = /^https?:/.test(src) && !src.startsWith(location.origin);
+    if (isCrossOrigin) img.crossOrigin = "anonymous";
     img.onload = () => setImage(img);
-    img.src = url?.startsWith("http") || url?.startsWith("data:") ? url : fileUrl(url);
+    img.src = src;
     return () => {
       img.onload = null;
     };
@@ -568,6 +571,16 @@ export default function SceneEditor() {
     try {
       const unavailable = bubbles.find(b => b.font_id && !browserFontState.get(b.font_id)?.browser_loaded);
       if (unavailable) throw new Error('当前气泡字体无法在浏览器中加载，请重新导入可用的 TTF / OTF 字体或选择系统字体后保存。');
+      // 前端接管合成：Konva 画布即成品，导出 PNG 随 layout 一起发给后端落盘，
+      // 不再触发服务端 Pillow recompose（见 DECISIONS 2026-09-16）。
+      // 导出前清空选中态与 Transformer，避免选中框/高亮被画进成品图；
+      // 双 rAF 等 React 把 selected=false 重渲染到画布再截图。
+      const prevSelection = selection.ids;
+      selection.setSelected(null);
+      transformerRef.current?.nodes([]);
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const panelPng = stageRef.current?.toDataURL({ pixelRatio: 1 / scale, mimeType: "image/png" });
+      selection.setSelected(prevSelection.length ? prevSelection[prevSelection.length - 1] : null);
       await api.saveLayout(pid, sid, {
         bubbles: bubbles.map(prepareBubble),
         screen_inset: inset,
@@ -577,11 +590,20 @@ export default function SceneEditor() {
         subject_layout: subjectLayout,
         layer_order: orderedLayers,
         element_groups: selection.groups,
+        panel_png: panelPng,
+        // 画布尺寸供后端裁切模板旁白的 caption 区、同步 meta.canvas
+        canvas: { width: 1080, height: panelH + capH, panel_height: panelH },
       });
       setDirty(false);
       setGuard(false);
-      const { task_id } = await api.generate(pid, { action: "recompose_scene", scene_id: sid });
-      watch(task_id, goNext ? (nextScene ? `/project/${pid}/scene/${nextScene.scene_id}/edit` : `/project/${pid}?step=layout`) : null);
+      setBusy(false);
+      setNotice("已保存当前分镜");
+      if (goNext) {
+        setGuard(false);
+        navigate(nextScene ? `/project/${pid}/scene/${nextScene.scene_id}/edit` : `/project/${pid}?step=layout`);
+      } else {
+        load().catch((e) => setError(e.message));
+      }
     } catch (e) {
       setBusy(false);
       setError(e.message);
@@ -1306,19 +1328,44 @@ export default function SceneEditor() {
 }
 
 /* ---- Right-click context menu (PPT-style, with submenu) ---- */
+const CTX_SUB_GAP = 4;   // submenu overlaps parent by this much (matches left:calc(100% - 4px))
+const CTX_SUB_W = 150;   // .ctx-sub min-width
+const CTX_EDGE = 8;      // keep this much breathing room from the wrap edge
 function ContextMenu({ pos, isElement, canGroup, canUngroup, canRemove, bubblesFull, onClose, onAdd, onGroup, onUngroup, onLayer, onDelete }) {
   const [sub, setSub] = useState(null); // 'add' | 'top' | 'bottom'
+  const [flipX, setFlipX] = useState(false); // open submenus to the left when near the right edge
+  const menuRef = useRef(null);
   useEffect(() => {
     const close = (e) => { if (!e.target.closest?.('.ctx-menu')) onClose(); };
     window.addEventListener('pointerdown', close);
     window.addEventListener('blur', onClose);
     return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('blur', onClose); };
   }, [onClose]);
+  // Measure once open: if the submenu would overflow the wrap's right edge,
+  // flip it to open on the left so 置于顶层/底层 stays clickable on right-edge bubbles.
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+    const wrap = el.offsetParent;
+    if (!wrap) return;
+    const wrapW = wrap.clientWidth;
+    const wrapH = wrap.clientHeight;
+    const menuW = el.offsetWidth;
+    const menuH = el.offsetHeight;
+    const subW = el.querySelector('.ctx-sub')?.offsetWidth || CTX_SUB_W;
+    const needRight = pos.x + menuW - CTX_SUB_GAP + subW + CTX_EDGE > wrapW;
+    setFlipX(needRight && pos.x - subW + CTX_SUB_GAP - CTX_EDGE >= 0);
+    // Clamp the menu itself inside the wrap so it never gets clipped either.
+    const clampedX = Math.max(CTX_EDGE, Math.min(pos.x, wrapW - menuW - CTX_EDGE));
+    const clampedY = Math.max(CTX_EDGE, Math.min(pos.y, wrapH - menuH - CTX_EDGE));
+    if (clampedX !== pos.x) el.style.left = `${clampedX}px`;
+    if (clampedY !== pos.y) el.style.top = `${clampedY}px`;
+  }, [pos.x, pos.y, isElement]);
   return (
-    <div className="ctx-menu" style={{ left: pos.x, top: pos.y }} onContextMenu={e => e.preventDefault()}>
+    <div ref={menuRef} className={`ctx-menu${flipX ? ' ctx-menu--flip' : ''}`} style={{ left: pos.x, top: pos.y }} onContextMenu={e => e.preventDefault()}>
       {!isElement ? (
         <div className="ctx-item ctx-parent" onMouseEnter={() => setSub('add')} onClick={() => setSub(sub === 'add' ? null : 'add')}>
-          添加 <span className="ctx-arrow">▸</span>
+          {flipX && <span className="ctx-arrow">◂</span>}添加 {!flipX && <span className="ctx-arrow">▸</span>}
           {sub === 'add' && (
             <div className="ctx-sub">
               <button type="button" disabled={bubblesFull} onClick={() => onAdd('text')}>添加文字框</button>
@@ -1330,7 +1377,7 @@ function ContextMenu({ pos, isElement, canGroup, canUngroup, canRemove, bubblesF
       ) : (
         <>
           <div className="ctx-item ctx-parent" onMouseEnter={() => setSub('top')}>
-            置于顶层 <span className="ctx-arrow">▸</span>
+            {flipX && <span className="ctx-arrow">◂</span>}置于顶层 {!flipX && <span className="ctx-arrow">▸</span>}
             {sub === 'top' && (
               <div className="ctx-sub">
                 <button type="button" onClick={() => onLayer('top')}>置于顶层</button>
@@ -1339,7 +1386,7 @@ function ContextMenu({ pos, isElement, canGroup, canUngroup, canRemove, bubblesF
             )}
           </div>
           <div className="ctx-item ctx-parent" onMouseEnter={() => setSub('bottom')}>
-            置于底层 <span className="ctx-arrow">▸</span>
+            {flipX && <span className="ctx-arrow">◂</span>}置于底层 {!flipX && <span className="ctx-arrow">▸</span>}
             {sub === 'bottom' && (
               <div className="ctx-sub">
                 <button type="button" onClick={() => onLayer('bottom')}>置于底层</button>

@@ -146,6 +146,24 @@ export default function ProjectWorkbench() {
       setPending(false);
     }
   }
+  async function setCharacterMode(c, reference_mode) {
+    if (busy || dirty) return;
+    setPending(true);
+    setError("");
+    try {
+      await api.setCharacterReferenceMode(pid, c.character_id, reference_mode);
+      await load();
+      setNotice(
+        reference_mode === "stylized"
+          ? "已切换为按所选风格重绘，下次生成会先重绘该角色形象。"
+          : "已切回原始形象，相关场景已标记为需要更新。",
+      );
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setPending(false);
+    }
+  }
   function updateScene(index, patch) {
     setSb((prev) => ({
       ...prev,
@@ -315,7 +333,22 @@ export default function ProjectWorkbench() {
               <p className="muted">
                 {c.role} ·{" "}
                 {c.reference_source === "upload" ? "上传形象" : "AI 创建"}
+                {c.reference_source === "upload" &&
+                  ` · ${(project.character_modes?.[c.character_id] ?? "original") === "stylized" ? "按所选风格重绘" : "保持原图风格"}`}
               </p>
+              {c.reference_source === "upload" && (
+                <label>
+                  形象风格
+                  <select
+                    value={project.character_modes?.[c.character_id] ?? "original"}
+                    disabled={busy || dirty}
+                    onChange={(e) => setCharacterMode(c, e.target.value)}
+                  >
+                    <option value="original">保持原图风格</option>
+                    <option value="stylized">按所选风格重绘</option>
+                  </select>
+                </label>
+              )}
               <label className="upload-button">
                 替换参考图
                 <input

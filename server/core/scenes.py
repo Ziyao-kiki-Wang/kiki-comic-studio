@@ -3,13 +3,14 @@
 
 from server import store
 from server.services import image_gen
+from server.core import characters as character_engine
 from server.core import story
 from server.core.studio import background_mode, screen_enabled
 from server.core.style_prompts import SCENE_RENDER_DIRECTION, object_style, negative_style
 from server.services.assets import asset_path
 
 
-def _build_prompt(sb: dict, scene: dict) -> str:
+def _build_prompt(sb: dict, scene: dict, project_id: str | None = None) -> str:
     chars = [
         c for c in sb["characters"] if c["character_id"] in scene.get("characters", [])
     ]
@@ -56,7 +57,23 @@ def _build_prompt(sb: dict, scene: dict) -> str:
                 "For this scene, the scene-specific reference image(s) replace "
                 f"the matching character reference(s): {', '.join(names)}. "
             )
-    fixed_identity = any(c.get("reference_source") == "upload" or c["character_id"] in replacements for c in chars)
+    fixed_identity = any(
+        (c.get("reference_source") == "upload"
+         and not (project_id and character_engine.character_stylized(project_id, c)))
+        or c["character_id"] in replacements
+        for c in chars
+    )
+    stylized_uploads = [
+        c for c in chars
+        if project_id and c.get("reference_source") == "upload"
+        and character_engine.character_stylized(project_id, c)
+    ]
+    if stylized_uploads:
+        names = ", ".join(c["name"] for c in stylized_uploads)
+        prompt += (
+            f"These characters were supplied as style-adapted references ({names}): keep their "
+            "identity, outfit and proportions, rendered in the same target art style as the environment. "
+        )
     if fixed_identity:
         prompt += "Supplied IP characters are immutable designs. Preserve their original visual style, facial features, proportions, signature colors, clothes and accessories. Adapt the environment to these characters, never redesign them to fit another style. "
     if background_mode(sb, scene) == "transparent":
@@ -161,7 +178,7 @@ def generate_scene(
     out = store.version_path(project_id, sid, version)
     prepared = story.prepare_scene_prompt(project_id, sb, scene, edit_instruction)
     ref_files = _ref_files(project_id, sb, prepared, refs)
-    prompt = _build_prompt(sb, prepared)
+    prompt = _build_prompt(sb, prepared, project_id)
     # Bind identities to the actual attachment order, not the order of prose.
     identity_lines = []
     for c in sb["characters"]:
@@ -201,6 +218,7 @@ def generate_scene(
     if ref_files:
         fixed_ip = any(
             c.get("reference_source") == "upload"
+            and not character_engine.character_stylized(project_id, c)
             and c["character_id"] in prepared.get("characters", [])
             for c in sb["characters"]
         )

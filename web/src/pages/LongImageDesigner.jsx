@@ -351,22 +351,17 @@ export default function LongImageDesigner({ pid, project, busy, onSave }) {
     setApplying(true);
     setError("");
     try {
+      // 前端接管合成：overlay 画布导出的 panel_png 随 layout 一起落盘，
+      // 不再 recompose_scene；长图只需 previewLong 重新排版一次。
       await api.saveLayout(pid, editSceneId, {
         bubbles: changed.bubbles,
         caption_layout: changed.caption_layout,
         subject_layout: changed.subject_layout,
         caption: changed.caption,
-      });
-      const { task_id } = await api.generate(pid, { action: "recompose_scene", scene_id: editSceneId });
-      await new Promise((resolve, reject) => {
-        const stop = pollTask(task_id, (t) => {
-          if (t.status === "done") { stop(); resolve(); }
-          if (t.status === "failed") { stop(); reject(new Error(t.error || "合成失败")); }
-        });
+        panel_png: changed.panel_png,
+        canvas: changed.canvas,
       });
       setEditSceneId(null);
-      // recompose_scene already rebuilds the panel + long image; re-fetch the
-      // preview so the just-dragged elements appear in their new positions.
       const blob = await api.previewLong(pid, options);
       const url = URL.createObjectURL(blob);
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);

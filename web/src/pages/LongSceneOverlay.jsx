@@ -17,9 +17,12 @@ function useImage(url) {
     setImage(null);
     if (!url) return;
     const img = new window.Image();
-    img.crossOrigin = "anonymous";
+    // 同源图片不污染 canvas；跨域才需 crossOrigin + 服务端 ACAO:*（见
+    // SceneEditor.useImage 同一约定）。导出 panel 依赖 toDataURL 不被污染。
+    const src = url.startsWith("http") || url.startsWith("data:") ? url : fileUrl(url);
+    if (/^https?:/.test(src) && !src.startsWith(location.origin)) img.crossOrigin = "anonymous";
     img.onload = () => setImage(img);
-    img.src = url.startsWith("http") || url.startsWith("data:") ? url : fileUrl(url);
+    img.src = src;
     return () => { img.onload = null; };
   }, [url]);
   return image;
@@ -65,6 +68,7 @@ export default function LongSceneOverlay({ pid, scene, story, box, displayScale,
   const [subjectLayout, setSubjectLayout] = useState(scene.layout?.subject_layout || null);
   const [sel, setSel] = useState(null);
   const transformerRef = useRef(null);
+  const stageRef = useRef(null);
   const refsMap = useRef({});
   const transparent = scene.background_mode === "transparent";
   const bgUrl = transparent ? (scene.foreground_url || scene.raw_url) : scene.raw_url;
@@ -109,18 +113,30 @@ export default function LongSceneOverlay({ pid, scene, story, box, displayScale,
     setCaptionLayout({ ...boxPart, ...patch });
   }
 
-  function finish() {
+  async function finish() {
+    // 前端接管合成：overlay 画布即成品 panel，导出 1080 全分辨率 PNG 一并回传，
+    // 由调用方随 saveLayout 发给后端落盘，不再走服务端 recompose_scene。
+    // 先清选中态并等一帧，避免选中框/Transformer 画进成品图。
+    const prevSel = sel;
+    setSel(null);
+    transformerRef.current?.nodes([]);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const panel_png = stageRef.current?.toDataURL({ pixelRatio: panelW / stageW, mimeType: "image/png" });
+    setSel(prevSel);
     onDone({
       bubbles: bubbles.map(b => ({ ...b, height: bubbleGeometry(b).height, geometry: bubbleGeometry(b) })),
       caption_layout: captionLayout,
       subject_layout: subjectLayout,
       caption: captionText,
+      panel_png,
+      // stagePanelH = panelH + 可拖 caption 扩展区；panel_height 是画面区高度
+      canvas: { width: panelW, height: stagePanelH, panel_height: panelH },
     });
   }
 
   return (
     <div className="long-overlay" style={{ left: pic.x * displayScale, top: pic.y * displayScale, width: stageW, height: stageH }}>
-      <Stage width={stageW} height={stageH} scaleX={innerScale * displayScale} scaleY={innerScale * displayScale}
+      <Stage ref={stageRef} width={stageW} height={stageH} scaleX={innerScale * displayScale} scaleY={innerScale * displayScale}
         onMouseDown={e => { if (e.target === e.target.getStage()) setSel(null); }}>
         <Layer>
           {/* Opaque backdrop hides the baked content in the preview underneath. */}

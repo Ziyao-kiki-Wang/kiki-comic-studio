@@ -60,6 +60,15 @@ not_for: "当前进展（-> STATUS），临时探索记录（-> archive/）"
 
 ---
 
+## 编辑延迟 / 前端接管合成（2026-09-16 评估，待实施）
+
+| 决策 | 选择 | 理由 / 替代 |
+|---|---|---|
+| 问题根因 | 每次 `save()` 都 `recompose_scene` → 服务端 Pillow 重画 panel.png 传回 | 延迟不是"传消息"慢，是"服务端栅格化→传图"慢；服务器地理位置只叠加小头 |
+| 关键发现 | 前端 `bubbleLayout.js`/`Bubble.jsx`/`EditableText.jsx`/`SceneOverlay`/`LongSceneOverlay` 已完整复刻 `bubbles.py`/`compose.py` 的几何与层级 | Konva 画布**所见即所得**，差距只剩"画布→PNG"这一步导出 |
+| 改造方向 | Phase 1：Konva `stage.toDataURL()` 前端出 panel.png，`save()` 不再走 `recompose_scene`；Phase 2：长图排版引擎(`compose.py`+`page_layouts.py`+`headings.py`)前端 Canvas 重写 | Phase 1 改动小收益最大；Phase 2 是大工程可延后。Electron 打包现有 Python 后端被否——等于把服务端 Pillow 背上每个用户电脑 |
+| 桌面化建议 | 若做桌面 App 用 **Tauri**（前端已本地化，只打 WebView 壳），不打 Python 运行时 | Electron 打包"重后端"是绕远路；先前端接管合成再谈壳 |
+
 ## 已废弃 / 被替代的做法
 
 - ~~`frowang.com/comic/` 路径挂载~~ → 改用 `comic.frowang.com` 子域（更干净）

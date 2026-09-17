@@ -110,6 +110,15 @@ export const api = {
         body: JSON.stringify(body),
       },
     ),
+  setCharacterReferenceMode: (pid, cid, reference_mode) =>
+    request(
+      `/api/projects/${encodeURIComponent(pid)}/characters/${encodeURIComponent(cid)}/reference-mode`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reference_mode }),
+      },
+    ),
   confirmCharacters: (pid) =>
     request(`/api/projects/${encodeURIComponent(pid)}/characters/confirm`, {
       method: "POST",

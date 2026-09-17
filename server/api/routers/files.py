@@ -39,5 +39,10 @@ def get_file(pid: str, path: str, request: Request, download: bool = False):
     return FileResponse(
         target,
         filename=target.name if download else None,
-        headers={"Cache-Control": "no-cache"},
+        headers={
+            "Cache-Control": "no-cache",
+            # 图片已被前端 <img crossorigin> 或 canvas.toDataURL 使用，必须回 ACAO
+            # 否则跨域（本地 5173→8000）会污染 canvas、导出 PNG 抛错；同源生产无害。
+            "Access-Control-Allow-Origin": "*",
+        },
     )

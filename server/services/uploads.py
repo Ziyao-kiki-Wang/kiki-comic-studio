@@ -43,6 +43,11 @@ def decode_image(data_url: str) -> bytes:
 
 
 def save_reference(pid: str, cid: str, png: bytes):
+    """保存用户上传的人物图。
+
+    {cid}_original.png 永远保存上传原图；{cid}.png 是实际用于生成的
+    生效参考图（原始模式=原图，风格化模式=风格化后的版本）。
+    """
     store.valid_id(cid)
     folder = store.project_dir(pid) / "characters"
     folder.mkdir(exist_ok=True)
@@ -52,4 +57,7 @@ def save_reference(pid: str, cid: str, png: bytes):
         archive.mkdir(exist_ok=True)
         (archive / f"{cid}_{time.time_ns()}.png").write_bytes(path.read_bytes())
     path.write_bytes(png)
+    # 新上传恢复原图记录并回到原始模式；风格化产物已对应旧图，作废
+    (folder / f"{cid}_original.png").write_bytes(png)
+    (folder / f"{cid}_styled.png").unlink(missing_ok=True)
     (folder / f"{cid}_rgba.png").unlink(missing_ok=True)

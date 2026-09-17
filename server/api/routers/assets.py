@@ -278,7 +278,7 @@ def update_scene_references(scene_id: str, body: SceneReferencesIn, pid: str = D
     meta["status"] = "draft"
     store.save_storyboard(pid, sb)
     store.save_scene_meta(pid, scene_id, meta)
-    return list_scene_references(pid, scene_id)
+    return list_scene_references(scene_id, pid)
 
 
 @router.post("/{pid}/scenes/{scene_id}/references", status_code=201)
