@@ -3,6 +3,7 @@
 
 from server import store
 from server.services import image_gen
+from server.services.image_gen import MissingTransparencyError
 from server.core import characters as character_engine
 from server.core import story
 from server.core.studio import background_mode, screen_enabled
@@ -215,28 +216,50 @@ def generate_scene(
     print(
         f"  画 {sid}（{scene.get('location', '')}，v{version}，{len(ref_files)} 张参考图）……（约 1 分钟）"
     )
-    if ref_files:
-        fixed_ip = any(
-            c.get("reference_source") == "upload"
-            and not character_engine.character_stylized(project_id, c)
-            and c["character_id"] in prepared.get("characters", [])
-            for c in sb["characters"]
-        )
-        image_gen.edit(
-            prompt,
-            ref_files,
-            out,
-            size="1536x1024",
-            background="transparent" if transparent else "opaque",
-            allow_reference_fallback=not (
-                fixed_ip or edit_instruction or prepared.get("reference_assets")
-            ),
-        )
-    else:
-        image_gen.generate(
-            prompt, out, size="1536x1024",
-            background="transparent" if transparent else "opaque",
-        )
+    want_transparent = transparent
+    try:
+        if ref_files:
+            fixed_ip = any(
+                c.get("reference_source") == "upload"
+                and not character_engine.character_stylized(project_id, c)
+                and c["character_id"] in prepared.get("characters", [])
+                for c in sb["characters"]
+            )
+            image_gen.edit(
+                prompt,
+                ref_files,
+                out,
+                size="1536x1024",
+                background="transparent" if want_transparent else "opaque",
+                allow_reference_fallback=not (
+                    fixed_ip or edit_instruction or prepared.get("reference_assets")
+                ),
+            )
+        else:
+            image_gen.generate(
+                prompt, out, size="1536x1024",
+                background="transparent" if want_transparent else "opaque",
+            )
+    except MissingTransparencyError as exc:
+        # 模型没按 background=transparent 返回 alpha 透明图（gpt-image-2 中转站
+        # 对参考图输入时可能忽略背景参数）。降级：接受不透明结果继续走，
+        # 让任务跑完，用户看到“这一格有底”比整个失败好。
+        print(f"  [警告] {sid} 模型未返回透明背景，已接受不透明结果：{exc}")
+        # 把临时文件保存下来：_save_result 已把字节写入 out 的临时文件，
+        # MissingTransparencyError 抛出前临时文件已删，这里要重画一次为不透明。
+        if ref_files:
+            image_gen.edit(
+                prompt,
+                ref_files,
+                out,
+                size="1536x1024",
+                background="opaque",
+                allow_reference_fallback=not (
+                    fixed_ip or edit_instruction or prepared.get("reference_assets")
+                ),
+            )
+        else:
+            image_gen.generate(prompt, out, size="1536x1024", background="opaque")
     store.register_version(project_id, sid, version)
     store.clear_scene_stale(project_id, sid)
     scene.update(prepared)
